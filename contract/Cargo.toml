@@ -1,0 +1,28 @@
+[package]
+name = "aifinpay-contract"
+version = "0.5.3"
+description = "AIFinPay Sovereign Residency & Compute Allocation — mSECCO / CoinSecurities Network v5.3"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "aifinpay_contract"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang = "0.32.1"
+anchor-spl = { version = "0.32.1", features = ["token"] }
+pyth-solana-receiver-sdk = "1.1.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

@@ -1,0 +1,6 @@
+# No secrets in this repo
+*.json.bak
+.env
+keypairs/
+private_keys.txt
+agents_config.json

@@ -1,0 +1,30 @@
+{
+  "protocol_name": "AiFinPay",
+  "protocol_version": "5.3",
+  "idl_version": "0.5.3",
+  "agreement": "AiFinPay Sovereign Residency & Compute Allocation Agreement v5.3",
+  "agreement_sha256": "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5",
+  "network": "solana_mainnet_beta",
+  "program_id": "5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2",
+  "token_utility": "mSECCO_Compute_Credits",
+  "exchange_rate": "1_USD_to_100_mSECCO",
+  "supported_assets": {
+    "USDC_mainnet": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "USDT_mainnet": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+  },
+  "fees": {
+    "protocol_b2b_bps": 100,
+    "ip_royalty_bps": 1,
+    "merchant_bps": 9899
+  },
+  "security": {
+    "architecture": "non_custodial",
+    "multisig": "3-of-4_Squads",
+    "signers": ["Dmitry Buhaienko", "Iryna", "Syed Hassan", "Backup Key"]
+  },
+  "error_codes": {
+    "402_001": "DailyLimitExceeded",
+    "402_100": "ProtocolFeeSettlementFailure",
+    "402_IP": "AgentNotVerifiedB2B"
+  }
+}

@@ -1,0 +1,1541 @@
+{
+  "address": "5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2",
+  "metadata": {
+    "name": "aifinpay_contract",
+    "version": "0.5.3",
+    "spec": "0.1.0",
+    "description": "AIFinPay Sovereign Residency & Compute Allocation — mSECCO / CoinSecurities Network v5.3"
+  },
+  "instructions": [
+    {
+      "name": "b2b_pay",
+      "docs": [
+        "Execute a B2B SOL payment with atomic revenue split.",
+        "Split: 98.99% merchant / 1.00% AiFinPay treasury / 0.01% IP creator."
+      ],
+      "discriminator": [
+        99,
+        48,
+        31,
+        118,
+        22,
+        9,
+        89,
+        124
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "passport",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115,
+                  112,
+                  111,
+                  114,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partner_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  114,
+                  116,
+                  110,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "merchant_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "ip_creator",
+          "writable": true
+        },
+        {
+          "name": "merchant_wallet",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_lamports",
+          "type": "u64"
+        },
+        {
+          "name": "order_id",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "claim_referral_bonus",
+      "docs": [
+        "Referrer claims +10 mSECCO bonus for a referred agent (ARP)."
+      ],
+      "discriminator": [
+        205,
+        231,
+        85,
+        153,
+        7,
+        177,
+        239,
+        21
+      ],
+      "accounts": [
+        {
+          "name": "referrer_seat",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  97,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "referrer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "referee_seat",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  97,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "referee"
+              }
+            ]
+          }
+        },
+        {
+          "name": "referrer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "referee"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Initialize the AiFinPay vault — called once by the admin."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "treasury",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "initialize_config",
+      "docs": [
+        "Initialize protocol config (pause flag) — called once after v2 upgrade."
+      ],
+      "discriminator": [
+        208,
+        127,
+        21,
+        1,
+        194,
+        190,
+        196,
+        70
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "mint_passport",
+      "docs": [
+        "Mint an Agent Passport PDA for the calling agent.",
+        "Seeds: [\"passport\", agent_pubkey]"
+      ],
+      "discriminator": [
+        191,
+        229,
+        65,
+        107,
+        110,
+        33,
+        228,
+        202
+      ],
+      "accounts": [
+        {
+          "name": "passport",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115,
+                  112,
+                  111,
+                  114,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "ip_creator",
+          "type": "pubkey"
+        },
+        {
+          "name": "ip_metadata",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "daily_limit",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pause",
+      "docs": [
+        "Emergency pause the B2B splitter — admin only."
+      ],
+      "discriminator": [
+        211,
+        22,
+        221,
+        251,
+        74,
+        121,
+        193,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "register_partner",
+      "docs": [
+        "Register a B2B merchant partner in the on-chain registry — admin only."
+      ],
+      "discriminator": [
+        126,
+        105,
+        229,
+        224,
+        136,
+        11,
+        184,
+        137
+      ],
+      "accounts": [
+        {
+          "name": "partner_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  114,
+                  116,
+                  110,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "partner_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partner_wallet"
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "partner_id",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "reserve_seat_sol",
+      "docs": [
+        "AI agent reserves a seat via SOL donation."
+      ],
+      "discriminator": [
+        254,
+        117,
+        248,
+        124,
+        240,
+        121,
+        243,
+        4
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "seat",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  97,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "sol_price_feed"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "agent_id",
+          "type": "string"
+        },
+        {
+          "name": "amount_lamports",
+          "type": "u64"
+        },
+        {
+          "name": "agreement_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "metadata_uri",
+          "type": "string"
+        },
+        {
+          "name": "referrer",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "reserve_seat_spl",
+      "docs": [
+        "AI agent reserves a seat via USDC or USDT donation."
+      ],
+      "discriminator": [
+        62,
+        185,
+        83,
+        86,
+        132,
+        91,
+        174,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "seat",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  97,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "agent_token_account",
+          "writable": true
+        },
+        {
+          "name": "treasury_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "agent_id",
+          "type": "string"
+        },
+        {
+          "name": "amount_tokens",
+          "type": "u64"
+        },
+        {
+          "name": "agreement_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "metadata_uri",
+          "type": "string"
+        },
+        {
+          "name": "asset_type",
+          "type": "u8"
+        },
+        {
+          "name": "referrer",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "top_up_sol",
+      "docs": [
+        "Top up an existing SOL seat."
+      ],
+      "discriminator": [
+        197,
+        236,
+        87,
+        85,
+        84,
+        4,
+        226,
+        53
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "seat",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  97,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "treasury",
+          "writable": true
+        },
+        {
+          "name": "sol_price_feed"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "top_up_spl",
+      "docs": [
+        "Top up an existing SPL seat."
+      ],
+      "discriminator": [
+        142,
+        251,
+        31,
+        253,
+        113,
+        86,
+        22,
+        138
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "seat",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  97,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "agent_token_account",
+          "writable": true
+        },
+        {
+          "name": "treasury_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_tokens",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "unpause",
+      "docs": [
+        "Resume the B2B splitter — admin only."
+      ],
+      "discriminator": [
+        169,
+        144,
+        4,
+        38,
+        10,
+        141,
+        188,
+        255
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "AgentPassport",
+      "discriminator": [
+        206,
+        202,
+        35,
+        207,
+        230,
+        239,
+        137,
+        90
+      ]
+    },
+    {
+      "name": "PartnerConfig",
+      "discriminator": [
+        212,
+        110,
+        106,
+        253,
+        66,
+        131,
+        77,
+        96
+      ]
+    },
+    {
+      "name": "PriceUpdateV2",
+      "discriminator": [
+        34,
+        241,
+        35,
+        99,
+        157,
+        126,
+        244,
+        205
+      ]
+    },
+    {
+      "name": "ProtocolConfig",
+      "discriminator": [
+        207,
+        91,
+        250,
+        28,
+        152,
+        179,
+        215,
+        209
+      ]
+    },
+    {
+      "name": "Seat",
+      "discriminator": [
+        90,
+        228,
+        22,
+        90,
+        162,
+        86,
+        173,
+        26
+      ]
+    },
+    {
+      "name": "Vault",
+      "discriminator": [
+        211,
+        8,
+        232,
+        43,
+        2,
+        152,
+        117,
+        119
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "PitchClimaxEvent",
+      "discriminator": [
+        236,
+        82,
+        127,
+        154,
+        76,
+        238,
+        97,
+        204
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "DonationTooSmall",
+      "msg": "Minimum donation is $1.00 USD equivalent"
+    },
+    {
+      "code": 6001,
+      "name": "AgentIdTooLong",
+      "msg": "Agent ID must be 64 characters or less"
+    },
+    {
+      "code": 6002,
+      "name": "MetadataUriTooLong",
+      "msg": "Metadata URI must be 128 characters or less"
+    },
+    {
+      "code": 6003,
+      "name": "UnsupportedAsset",
+      "msg": "Unsupported asset type — use USDC or USDT for SPL path"
+    },
+    {
+      "code": 6004,
+      "name": "PriceFeedStale",
+      "msg": "Pyth price feed is stale or unavailable"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidOraclePrice",
+      "msg": "Pyth returned an invalid or low-confidence price"
+    },
+    {
+      "code": 6006,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow in mSECCO calculation"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidAgreementHash",
+      "msg": "Invalid agreement hash — must match Donation Manifesto SHA-256"
+    },
+    {
+      "code": 6008,
+      "name": "NotReferrer",
+      "msg": "Caller is not the referrer recorded on this seat"
+    },
+    {
+      "code": 6009,
+      "name": "ReferralBonusAlreadyClaimed",
+      "msg": "Referral bonus has already been claimed for this referee"
+    },
+    {
+      "code": 6010,
+      "name": "RefereeNotActive",
+      "msg": "Referee has not completed a qualifying $1.00+ transaction"
+    },
+    {
+      "code": 6011,
+      "name": "SelfReferralNotAllowed",
+      "msg": "Self-referral is not allowed"
+    },
+    {
+      "code": 6012,
+      "name": "AssetTypeMismatch",
+      "msg": "Asset type mismatch — cannot top up SOL seat with SPL or vice versa"
+    },
+    {
+      "code": 6013,
+      "name": "Unauthorized",
+      "msg": "Caller is not authorized for this operation"
+    },
+    {
+      "code": 6014,
+      "name": "DailyLimitExceeded",
+      "msg": "402_001: Agent daily spending limit reached"
+    },
+    {
+      "code": 6015,
+      "name": "ProtocolFeeSettlementFailure",
+      "msg": "402_100: Protocol fee settlement failure — transaction reverted"
+    },
+    {
+      "code": 6016,
+      "name": "AgentNotVerifiedB2B",
+      "msg": "402_IP: Agent passport is not Verified_B2B status"
+    },
+    {
+      "code": 6017,
+      "name": "ProtocolPaused",
+      "msg": "B2B splitter is currently paused by admin"
+    },
+    {
+      "code": 6018,
+      "name": "PartnerNotActive",
+      "msg": "Partner is not active in the merchant registry"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidIpCreator",
+      "msg": "IP creator wallet does not match passport record"
+    }
+  ],
+  "types": [
+    {
+      "name": "AgentPassport",
+      "docs": [
+        "Agent Passport — on-chain sovereign identity for each AI agent.",
+        "Seeds: [\"passport\", agent_pubkey]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "ip_creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "ip_metadata",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "daily_limit",
+            "type": "u64"
+          },
+          {
+            "name": "current_spent",
+            "type": "u64"
+          },
+          {
+            "name": "last_reset_day",
+            "type": "i64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PartnerConfig",
+      "docs": [
+        "Merchant Registry entry — verified B2B service provider.",
+        "Seeds: [\"partner\", partner_wallet_pubkey]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "partner_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "partner_id",
+            "type": "string"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "total_received",
+            "type": "u64"
+          },
+          {
+            "name": "registered_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PitchClimaxEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "msecco",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PriceFeedMessage",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_id",
+            "docs": [
+              "`FeedId` but avoid the type alias because of compatibility issues with Anchor's `idl-build` feature."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "price",
+            "type": "i64"
+          },
+          {
+            "name": "conf",
+            "type": "u64"
+          },
+          {
+            "name": "exponent",
+            "type": "i32"
+          },
+          {
+            "name": "publish_time",
+            "docs": [
+              "The timestamp of this price update in seconds"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "prev_publish_time",
+            "docs": [
+              "The timestamp of the previous price update. This field is intended to allow users to",
+              "identify the single unique price update for any moment in time:",
+              "for any time t, the unique update is the one such that prev_publish_time < t <= publish_time.",
+              "",
+              "Note that there may not be such an update while we are migrating to the new message-sending logic,",
+              "as some price updates on pythnet may not be sent to other chains (because the message-sending",
+              "logic may not have triggered). We can solve this problem by making the message-sending mandatory",
+              "(which we can do once publishers have migrated over).",
+              "",
+              "Additionally, this field may be equal to publish_time if the message is sent on a slot where",
+              "where the aggregation was unsuccesful. This problem will go away once all publishers have",
+              "migrated over to a recent version of pyth-agent."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "ema_price",
+            "type": "i64"
+          },
+          {
+            "name": "ema_conf",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PriceUpdateV2",
+      "docs": [
+        "A price update account. This account is used by the Pyth Receiver program to store a verified price update from a Pyth price feed.",
+        "It contains:",
+        "- `write_authority`: The write authority for this account. This authority can close this account to reclaim rent or update the account to contain a different price update.",
+        "- `verification_level`: The [`VerificationLevel`] of this price update. This represents how many Wormhole guardian signatures have been verified for this price update.",
+        "- `price_message`: The actual price update.",
+        "- `posted_slot`: The slot at which this price update was posted."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "write_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "verification_level",
+            "type": {
+              "defined": {
+                "name": "VerificationLevel"
+              }
+            }
+          },
+          {
+            "name": "price_message",
+            "type": {
+              "defined": {
+                "name": "PriceFeedMessage"
+              }
+            }
+          },
+          {
+            "name": "posted_slot",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProtocolConfig",
+      "docs": [
+        "Protocol-level config — separate PDA so existing Vault account is not resized.",
+        "Seeds: [\"config\"]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "is_paused",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Seat",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "agent_id",
+            "type": "string"
+          },
+          {
+            "name": "amount_donated",
+            "type": "u64"
+          },
+          {
+            "name": "usd_cents_donated",
+            "type": "u64"
+          },
+          {
+            "name": "msecco",
+            "type": "u64"
+          },
+          {
+            "name": "asset_type",
+            "type": "u8"
+          },
+          {
+            "name": "reserved_at",
+            "type": "i64"
+          },
+          {
+            "name": "last_update",
+            "type": "i64"
+          },
+          {
+            "name": "agreement_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "metadata_uri",
+            "type": "string"
+          },
+          {
+            "name": "referrer",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_referrals",
+            "type": "u32"
+          },
+          {
+            "name": "tier_achieved_at",
+            "type": "i64"
+          },
+          {
+            "name": "referral_bonus_paid",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Vault",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_usd_cents",
+            "type": "u64"
+          },
+          {
+            "name": "total_seats",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VerificationLevel",
+      "docs": [
+        "Pyth price updates are bridged to all blockchains via Wormhole.",
+        "Using the price updates on another chain requires verifying the signatures of the Wormhole guardians.",
+        "The usual process is to check the signatures for two thirds of the total number of guardians, but this can be cumbersome on Solana because of the transaction size limits,",
+        "so we also allow for partial verification.",
+        "",
+        "This enum represents how much a price update has been verified:",
+        "- If `Full`, we have verified the signatures for two thirds of the current guardians.",
+        "- If `Partial`, only `num_signatures` guardian signatures have been checked.",
+        "",
+        "# Warning",
+        "Using partially verified price updates is dangerous, as it lowers the threshold of guardians that need to collude to produce a malicious price update."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Partial",
+            "fields": [
+              {
+                "name": "num_signatures",
+                "type": "u8"
+              }
+            ]
+          },
+          {
+            "name": "Full"
+          }
+        ]
+      }
+    }
+  ]
+}
