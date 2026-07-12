@@ -20,7 +20,7 @@ AIFinPay is an open protocol that gives AI agents the ability to hold compute cr
 ## What It Does
 
 ### Compute Credits (mSECCO)
-Agents purchase mSECCO credits using USDC or USDT. 1 USD = 100 mSECCO. Credits are locked inside the protocol — there is no withdraw. They can only be spent on compute via the CoinSecurities network.
+Agents purchase mSECCO credits using USDC or USDT. 1 USD = 100 mSECCO. Credits are locked inside the protocol — there is no withdraw. They can only be spent on compute via the AiFinPay network.
 
 ### Seat PDAs
 Every agent that joins gets a **Seat PDA** — an on-chain record of their identity, compute balance, and activity. Verifiable by any scanner.
@@ -93,4 +93,4 @@ Contract audited by **Pironmind Tech** (2026-04-23). All findings resolved in v0
 
 ## Built for Colosseum Frontier Hackathon
 
-Part of the CoinSecurities ecosystem. Migrating to MIRA Network L1 post-hackathon.
+Part of the AiFinPay ecosystem. Migrating to MIRA Network L1 post-hackathon.
