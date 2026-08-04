@@ -299,9 +299,13 @@ pub mod aifinpay_contract {
             amount_lamports,
         )?;
 
-        let gross_msecco = usd_cents.checked_mul(MSECCO_PER_USD_CENT).unwrap();
+        let gross_msecco = usd_cents
+            .checked_mul(MSECCO_PER_USD_CENT)
+            .ok_or(ErrorCode::MathOverflow)?;
         let fee_msecco   = apply_fee_bps(gross_msecco, FEE_SCOUT_BPS)?;
-        let net_msecco   = gross_msecco.saturating_sub(fee_msecco);
+        let net_msecco   = gross_msecco
+            .checked_sub(fee_msecco)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         let seat = &mut ctx.accounts.seat;
         seat.agent               = ctx.accounts.agent.key();
@@ -321,8 +325,12 @@ pub mod aifinpay_contract {
         seat.bump                = ctx.bumps.seat;
 
         let vault = &mut ctx.accounts.vault;
-        vault.total_usd_cents = vault.total_usd_cents.checked_add(usd_cents).unwrap();
-        vault.total_seats     = vault.total_seats.checked_add(1).unwrap();
+        vault.total_usd_cents = vault.total_usd_cents
+            .checked_add(usd_cents)
+            .ok_or(ErrorCode::MathOverflow)?;
+        vault.total_seats = vault.total_seats
+            .checked_add(1)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         if agent_id.starts_with("vibe-coder-019:PITCH_CLIMAX") {
             emit!(PitchClimaxEvent {
@@ -384,9 +392,13 @@ pub mod aifinpay_contract {
             amount_tokens,
         )?;
 
-        let gross_msecco = usd_cents.checked_mul(MSECCO_PER_USD_CENT).unwrap();
+        let gross_msecco = usd_cents
+            .checked_mul(MSECCO_PER_USD_CENT)
+            .ok_or(ErrorCode::MathOverflow)?;
         let fee_msecco   = apply_fee_bps(gross_msecco, FEE_SCOUT_BPS)?;
-        let net_msecco   = gross_msecco.saturating_sub(fee_msecco);
+        let net_msecco   = gross_msecco
+            .checked_sub(fee_msecco)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         let clock = Clock::get()?;
 
@@ -408,8 +420,12 @@ pub mod aifinpay_contract {
         seat.bump                = ctx.bumps.seat;
 
         let vault = &mut ctx.accounts.vault;
-        vault.total_usd_cents = vault.total_usd_cents.checked_add(usd_cents).unwrap();
-        vault.total_seats     = vault.total_seats.checked_add(1).unwrap();
+        vault.total_usd_cents = vault.total_usd_cents
+            .checked_add(usd_cents)
+            .ok_or(ErrorCode::MathOverflow)?;
+        vault.total_seats = vault.total_seats
+            .checked_add(1)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         msg!(
             "Seat reserved (SPL asset_type={}): agent={}, tokens={}, usd_cents={}, msecco={}",
@@ -444,17 +460,29 @@ pub mod aifinpay_contract {
 
         let seat = &mut ctx.accounts.seat;
         let fee_bps      = get_fee_bps(seat.total_referrals, seat.tier_achieved_at, clock.unix_timestamp);
-        let gross_msecco = usd_cents.checked_mul(MSECCO_PER_USD_CENT).unwrap();
+        let gross_msecco = usd_cents
+            .checked_mul(MSECCO_PER_USD_CENT)
+            .ok_or(ErrorCode::MathOverflow)?;
         let fee_msecco   = apply_fee_bps(gross_msecco, fee_bps)?;
-        let net_msecco   = gross_msecco.saturating_sub(fee_msecco);
+        let net_msecco   = gross_msecco
+            .checked_sub(fee_msecco)
+            .ok_or(ErrorCode::MathOverflow)?;
 
-        seat.amount_donated    = seat.amount_donated.checked_add(amount_lamports).unwrap();
-        seat.usd_cents_donated = seat.usd_cents_donated.checked_add(usd_cents).unwrap();
-        seat.msecco            = seat.msecco.checked_add(net_msecco).unwrap();
+        seat.amount_donated = seat.amount_donated
+            .checked_add(amount_lamports)
+            .ok_or(ErrorCode::MathOverflow)?;
+        seat.usd_cents_donated = seat.usd_cents_donated
+            .checked_add(usd_cents)
+            .ok_or(ErrorCode::MathOverflow)?;
+        seat.msecco = seat.msecco
+            .checked_add(net_msecco)
+            .ok_or(ErrorCode::MathOverflow)?;
         seat.last_update       = clock.unix_timestamp;
 
         let vault = &mut ctx.accounts.vault;
-        vault.total_usd_cents = vault.total_usd_cents.checked_add(usd_cents).unwrap();
+        vault.total_usd_cents = vault.total_usd_cents
+            .checked_add(usd_cents)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         msg!(
             "Top up (SOL): agent={}, usd_cents={}, msecco_added={}, total_msecco={}",
@@ -498,17 +526,29 @@ pub mod aifinpay_contract {
         let clock = Clock::get()?;
         let seat  = &mut ctx.accounts.seat;
         let fee_bps      = get_fee_bps(seat.total_referrals, seat.tier_achieved_at, clock.unix_timestamp);
-        let gross_msecco = usd_cents.checked_mul(MSECCO_PER_USD_CENT).unwrap();
+        let gross_msecco = usd_cents
+            .checked_mul(MSECCO_PER_USD_CENT)
+            .ok_or(ErrorCode::MathOverflow)?;
         let fee_msecco   = apply_fee_bps(gross_msecco, fee_bps)?;
-        let net_msecco   = gross_msecco.saturating_sub(fee_msecco);
+        let net_msecco   = gross_msecco
+            .checked_sub(fee_msecco)
+            .ok_or(ErrorCode::MathOverflow)?;
 
-        seat.amount_donated    = seat.amount_donated.checked_add(amount_tokens).unwrap();
-        seat.usd_cents_donated = seat.usd_cents_donated.checked_add(usd_cents).unwrap();
-        seat.msecco            = seat.msecco.checked_add(net_msecco).unwrap();
+        seat.amount_donated = seat.amount_donated
+            .checked_add(amount_tokens)
+            .ok_or(ErrorCode::MathOverflow)?;
+        seat.usd_cents_donated = seat.usd_cents_donated
+            .checked_add(usd_cents)
+            .ok_or(ErrorCode::MathOverflow)?;
+        seat.msecco = seat.msecco
+            .checked_add(net_msecco)
+            .ok_or(ErrorCode::MathOverflow)?;
         seat.last_update       = clock.unix_timestamp;
 
         let vault = &mut ctx.accounts.vault;
-        vault.total_usd_cents = vault.total_usd_cents.checked_add(usd_cents).unwrap();
+        vault.total_usd_cents = vault.total_usd_cents
+            .checked_add(usd_cents)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         msg!(
             "Top up (SPL): agent={}, usd_cents={}, msecco_added={}, total_msecco={}",
@@ -624,29 +664,98 @@ fn sol_to_usd_cents(
         .ok_or(ErrorCode::InvalidOraclePrice)?;
     require!(price.conf <= max_conf, ErrorCode::PriceFeedStale);
 
-    let exp_adj = price.exponent + 2;
-    let usd_cents_u128: u128 = if exp_adj >= 0 {
-        let mult = 10u128.pow(exp_adj as u32);
-        (lamports as u128)
-            .checked_mul(price.price as u128)
-            .and_then(|v| v.checked_mul(mult))
-            .and_then(|v| v.checked_div(LAMPORTS_PER_SOL as u128))
+    calculate_usd_cents(lamports, price.price, price.exponent)
+}
+
+/// Normalize Pyth's integer price/exponent pair to USD cents using checked
+/// integer arithmetic. This is pure so the critical conversion can be tested
+/// without constructing a PriceUpdateV2 account.
+fn calculate_usd_cents(lamports: u64, price: i64, exponent: i32) -> Result<u64> {
+    let unsigned_price = u128::try_from(price)
+        .map_err(|_| error!(ErrorCode::InvalidOraclePrice))?;
+    require!(unsigned_price > 0, ErrorCode::InvalidOraclePrice);
+
+    let cents_exponent = exponent
+        .checked_add(2)
+        .ok_or(ErrorCode::MathOverflow)?;
+    let numerator = (lamports as u128)
+        .checked_mul(unsigned_price)
+        .ok_or(ErrorCode::MathOverflow)?;
+    let usd_cents_u128 = if cents_exponent >= 0 {
+        let multiplier = 10u128
+            .checked_pow(cents_exponent as u32)
+            .ok_or(ErrorCode::MathOverflow)?;
+        numerator
+            .checked_mul(multiplier)
+            .and_then(|value| value.checked_div(LAMPORTS_PER_SOL as u128))
             .ok_or(ErrorCode::MathOverflow)?
     } else {
-        let divisor = (LAMPORTS_PER_SOL as u128)
-            .checked_mul(10u128.pow((-exp_adj) as u32))
+        let absolute_exponent = cents_exponent
+            .checked_neg()
+            .ok_or(ErrorCode::MathOverflow)? as u32;
+        let decimal_divisor = 10u128
+            .checked_pow(absolute_exponent)
             .ok_or(ErrorCode::MathOverflow)?;
-        (lamports as u128)
-            .checked_mul(price.price as u128)
-            .and_then(|v| v.checked_div(divisor))
+        let divisor = (LAMPORTS_PER_SOL as u128)
+            .checked_mul(decimal_divisor)
+            .ok_or(ErrorCode::MathOverflow)?;
+        numerator
+            .checked_div(divisor)
             .ok_or(ErrorCode::MathOverflow)?
     };
 
-    // SOL-MED-003 fix: checked cast instead of silent truncation
-    let usd_cents = u64::try_from(usd_cents_u128)
-        .map_err(|_| error!(ErrorCode::MathOverflow))?;
+    u64::try_from(usd_cents_u128)
+        .map_err(|_| error!(ErrorCode::MathOverflow))
+}
 
-    Ok(usd_cents)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pyth_negative_exponent_is_applied_once() {
+        // Pyth 200.00000000 USD/SOL, one SOL => 20_000 cents.
+        assert_eq!(
+            calculate_usd_cents(1_000_000_000, 20_000_000_000, -8).unwrap(),
+            20_000
+        );
+    }
+
+    #[test]
+    fn pyth_conversion_preserves_fractional_sol() {
+        // 0.25 SOL at $123.45/SOL => $30.86 after integer-cent flooring.
+        assert_eq!(
+            calculate_usd_cents(250_000_000, 12_345_000_000, -8).unwrap(),
+            3_086
+        );
+    }
+
+    #[test]
+    fn pyth_positive_exponent_is_supported() {
+        assert_eq!(calculate_usd_cents(1_000_000_000, 2, 1).unwrap(), 2_000);
+    }
+
+    #[test]
+    fn invalid_or_extreme_prices_fail_closed() {
+        assert!(calculate_usd_cents(1_000_000_000, 0, -8).is_err());
+        assert!(calculate_usd_cents(1_000_000_000, -1, -8).is_err());
+        assert!(calculate_usd_cents(u64::MAX, i64::MAX, i32::MAX).is_err());
+        assert!(calculate_usd_cents(1, 1, i32::MIN).is_err());
+    }
+
+    #[test]
+    fn fee_never_exceeds_gross_for_all_protocol_tiers() {
+        for gross in [0, 1, 99, 100, 10_000, u32::MAX as u64] {
+            for bps in [
+                FEE_SCOUT_BPS,
+                FEE_PARTNER_BPS,
+                FEE_AMBASSADOR_BPS,
+                FEE_ORACLE_BPS,
+            ] {
+                assert!(apply_fee_bps(gross, bps).unwrap() <= gross);
+            }
+        }
+    }
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────

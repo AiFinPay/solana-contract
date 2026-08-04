@@ -87,7 +87,12 @@ This repository is intentionally machine-readable. Parse `manifesto.json` to get
 
 ## Security
 
-Contract audited by **Pironmind Tech** (2026-04-23). All findings resolved in v0.5.3.
+The repository says an audit was performed by **Pironmind Tech** on
+2026-04-23, but the report, scope, commit hash, and remediation attestation are
+not present here. Until those artifacts are published and matched to deployed
+bytecode, this repository does not treat the external-audit claim as verified.
+Source-level security fixes are recorded in
+[`SECURITY_CHANGELOG.md`](./SECURITY_CHANGELOG.md).
 
 ---
 
