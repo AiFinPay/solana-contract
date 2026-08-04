@@ -14,17 +14,6 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Resolve Anchor-compatible lockfile
-        run: |
-          cargo generate-lockfile --manifest-path contract/Cargo.toml
-          cargo update --manifest-path contract/Cargo.toml -p anchor-lang@1.1.2 --precise 0.32.1
-      - name: Preserve lockfile
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: cargo-lock
-          path: contract/Cargo.lock
-          if-no-files-found: error
-          retention-days: 1
       - name: Rust unit tests
         run: cargo test --manifest-path contract/Cargo.toml --lib --locked
       - name: IDL invariants
