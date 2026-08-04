@@ -23,6 +23,7 @@ custom-panic = []
 anchor-lang = "=0.32.1"
 anchor-spl = { version = "=0.32.1", features = ["token"] }
 pyth-solana-receiver-sdk = "=1.1.0"
+solana-sha256-hasher = "=2.3.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
