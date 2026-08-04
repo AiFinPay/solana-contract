@@ -1,4 +1,4 @@
-# AIFinPay Protocol — v0.5.3
+# AIFinPay Protocol — deployed v0.5.3 / source upgrade v0.6.0
 
 **The financial infrastructure for autonomous AI agents on Solana.**
 
@@ -14,6 +14,10 @@ AIFinPay is an open protocol that gives AI agents the ability to hold compute cr
 | **Protocol Version** | 5.3 |
 | **Network** | Solana Mainnet Beta |
 | **Verify on Solscan** | https://solscan.io/account/5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2 |
+
+The `main` deployment remains v0.5.3 until the v0.6.0 source candidate is
+compiled, independently reviewed, upgraded by the current program authority,
+and its bytecode is verified. Do not advertise the source candidate as live.
 
 ---
 
@@ -49,7 +53,9 @@ Businesses bring their own keys. AIFinPay never holds funds — it routes them.
 | `top_up_spl` | Add more mSECCO via USDC/USDT |
 | `mint_passport` | Create Agent Passport PDA |
 | `register_partner` | Register a B2B partner (admin-only) |
-| `b2b_pay` | Route B2B payment with atomic split |
+| `b2b_pay` | Route B2B payment with atomic split and immutable replay receipt |
+| `set_passport_status` | Verify, suspend, or reactivate an Agent Passport (admin-only) |
+| `set_partner_active` | Pause or reactivate a merchant (admin-only) |
 | `initialize_config` | Initialize protocol config (admin-only) |
 | `pause` / `unpause` | Emergency pause (admin-only) |
 | `claim_referral_bonus` | Claim referral mSECCO bonus |

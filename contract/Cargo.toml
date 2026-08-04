@@ -1,6 +1,6 @@
 [package]
 name = "aifinpay-contract"
-version = "0.5.3"
+version = "0.6.0"
 description = "AIFinPay Sovereign Residency & Compute Allocation — mSECCO / CoinSecurities Network v5.3"
 edition = "2021"
 
@@ -20,9 +20,9 @@ custom-heap = []
 custom-panic = []
 
 [dependencies]
-anchor-lang = "0.32.1"
-anchor-spl = { version = "0.32.1", features = ["token"] }
-pyth-solana-receiver-sdk = "1.1.0"
+anchor-lang = "=0.32.1"
+anchor-spl = { version = "=0.32.1", features = ["token"] }
+pyth-solana-receiver-sdk = "=1.1.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

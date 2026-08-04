@@ -1,0 +1,22 @@
+name: contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Rust formatting
+        run: cargo fmt --manifest-path contract/Cargo.toml -- --check
+      - name: Rust unit tests
+        run: cargo test --manifest-path contract/Cargo.toml --lib
+      - name: IDL invariants
+        run: node scripts/validate-idl.mjs

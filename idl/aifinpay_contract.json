@@ -2,7 +2,7 @@
   "address": "5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2",
   "metadata": {
     "name": "aifinpay_contract",
-    "version": "0.5.3",
+    "version": "0.6.0",
     "spec": "0.1.0",
     "description": "AIFinPay Sovereign Residency & Compute Allocation — mSECCO / CoinSecurities Network v5.3"
   },
@@ -92,6 +92,38 @@
           }
         },
         {
+          "name": "payment_receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  121,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              },
+              {
+                "kind": "account",
+                "path": "merchant_wallet"
+              },
+              {
+                "kind": "arg",
+                "path": "payment_id"
+              }
+            ]
+          }
+        },
+        {
           "name": "vault",
           "writable": true,
           "pda": {
@@ -135,6 +167,15 @@
         {
           "name": "amount_lamports",
           "type": "u64"
+        },
+        {
+          "name": "payment_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
         },
         {
           "name": "order_id",
@@ -532,6 +573,151 @@
         {
           "name": "partner_id",
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "set_partner_active",
+      "docs": [
+        "Pause or reactivate a registered merchant without replacing its PDA."
+      ],
+      "discriminator": [
+        189,
+        103,
+        121,
+        122,
+        196,
+        186,
+        246,
+        123
+      ],
+      "accounts": [
+        {
+          "name": "partner_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  114,
+                  116,
+                  110,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "partner_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "partner_wallet"
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "is_active",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "set_passport_status",
+      "docs": [
+        "Admin-controlled KYC/risk transition for an existing passport."
+      ],
+      "discriminator": [
+        159,
+        19,
+        120,
+        8,
+        99,
+        17,
+        161,
+        56
+      ],
+      "accounts": [
+        {
+          "name": "passport",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115,
+                  112,
+                  111,
+                  114,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent"
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
         }
       ]
     },
@@ -996,6 +1182,19 @@
       ]
     },
     {
+      "name": "B2bPaymentReceipt",
+      "discriminator": [
+        112,
+        86,
+        225,
+        214,
+        123,
+        76,
+        116,
+        170
+      ]
+    },
+    {
       "name": "PriceUpdateV2",
       "discriminator": [
         34,
@@ -1049,6 +1248,19 @@
     }
   ],
   "events": [
+    {
+      "name": "B2bPaymentSettled",
+      "discriminator": [
+        220,
+        52,
+        177,
+        197,
+        143,
+        59,
+        188,
+        238
+      ]
+    },
     {
       "name": "PitchClimaxEvent",
       "discriminator": [
@@ -1163,6 +1375,31 @@
       "code": 6019,
       "name": "InvalidIpCreator",
       "msg": "IP creator wallet does not match passport record"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidPassportStatus",
+      "msg": "Passport status is outside the supported lifecycle"
+    },
+    {
+      "code": 6021,
+      "name": "InvalidTreasury",
+      "msg": "Treasury must be a non-zero public key"
+    },
+    {
+      "code": 6022,
+      "name": "InvalidOrderId",
+      "msg": "Order ID must contain 1 to 64 UTF-8 bytes"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidPaymentId",
+      "msg": "Payment ID must equal SHA-256(order_id)"
+    },
+    {
+      "code": 6024,
+      "name": "InvalidMerchant",
+      "msg": "Merchant must be a non-zero public key"
     }
   ],
   "types": [
@@ -1251,6 +1488,107 @@
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "B2bPaymentReceipt",
+      "docs": [
+        "Immutable proof that an agent settled a merchant order."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payment_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "merchant",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "merchant_amount",
+            "type": "u64"
+          },
+          {
+            "name": "treasury_amount",
+            "type": "u64"
+          },
+          {
+            "name": "creator_amount",
+            "type": "u64"
+          },
+          {
+            "name": "settled_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "B2bPaymentSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payment_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "order_id",
+            "type": "string"
+          },
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "merchant",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "merchant_amount",
+            "type": "u64"
+          },
+          {
+            "name": "treasury_amount",
+            "type": "u64"
+          },
+          {
+            "name": "creator_amount",
+            "type": "u64"
+          },
+          {
+            "name": "settled_at",
+            "type": "i64"
           }
         ]
       }

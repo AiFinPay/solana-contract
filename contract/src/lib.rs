@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::hash::hash;
 use anchor_lang::system_program;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer as SplTransfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
@@ -73,6 +74,7 @@ pub mod aifinpay_contract {
 
     /// Initialize the AiFinPay vault — called once by the admin.
     pub fn initialize(ctx: Context<Initialize>, treasury: Pubkey) -> Result<()> {
+        require!(treasury != Pubkey::default(), ErrorCode::InvalidTreasury);
         let vault = &mut ctx.accounts.vault;
         vault.admin           = ctx.accounts.admin.key();
         vault.treasury        = treasury;
@@ -122,6 +124,7 @@ pub mod aifinpay_contract {
         ip_metadata: [u8; 32],
         daily_limit: u64,
     ) -> Result<()> {
+        require!(ip_creator != Pubkey::default(), ErrorCode::InvalidIpCreator);
         let clock    = Clock::get()?;
         let passport = &mut ctx.accounts.passport;
 
@@ -142,11 +145,27 @@ pub mod aifinpay_contract {
         Ok(())
     }
 
+    /// Admin-controlled KYC/risk transition for an existing passport.
+    pub fn set_passport_status(
+        ctx: Context<SetPassportStatus>,
+        status: u8,
+    ) -> Result<()> {
+        require!(status <= PASSPORT_SUSPENDED, ErrorCode::InvalidPassportStatus);
+        ctx.accounts.passport.status = status;
+        msg!(
+            "Passport status updated: owner={}, status={}",
+            ctx.accounts.passport.owner,
+            status
+        );
+        Ok(())
+    }
+
     /// Register a B2B merchant partner in the on-chain registry — admin only.
     pub fn register_partner(
         ctx:        Context<RegisterPartner>,
         partner_id: String,
     ) -> Result<()> {
+        require!(ctx.accounts.partner_wallet.key() != Pubkey::default(), ErrorCode::InvalidMerchant);
         require!(partner_id.len() <= 64, ErrorCode::AgentIdTooLong);
         require!(
             ctx.accounts.vault.admin == ctx.accounts.admin.key(),
@@ -167,15 +186,32 @@ pub mod aifinpay_contract {
         Ok(())
     }
 
+    /// Pause or reactivate a registered merchant without replacing its PDA.
+    pub fn set_partner_active(
+        ctx: Context<SetPartnerActive>,
+        is_active: bool,
+    ) -> Result<()> {
+        ctx.accounts.partner_config.is_active = is_active;
+        msg!(
+            "Partner status updated: wallet={}, active={}",
+            ctx.accounts.partner_config.partner_wallet,
+            is_active
+        );
+        Ok(())
+    }
+
     /// Execute a B2B SOL payment with atomic revenue split.
     /// Split: 98.99% merchant / 1.00% AiFinPay treasury / 0.01% IP creator.
     pub fn b2b_pay(
         ctx:             Context<B2bPay>,
         amount_lamports: u64,
+        payment_id:      [u8; 32],
         order_id:        String,
     ) -> Result<()> {
         require!(!ctx.accounts.config.is_paused, ErrorCode::ProtocolPaused);
-        require!(order_id.len() <= 64, ErrorCode::AgentIdTooLong);
+        require!(!order_id.is_empty(), ErrorCode::InvalidOrderId);
+        require!(order_id.len() <= 64, ErrorCode::InvalidOrderId);
+        require!(payment_id_for(&order_id) == payment_id, ErrorCode::InvalidPaymentId);
 
         let passport = &mut ctx.accounts.passport;
         require!(
@@ -196,25 +232,8 @@ pub mod aifinpay_contract {
             require!(new_spent <= passport.daily_limit, ErrorCode::DailyLimitExceeded);
         }
 
-        let treasury_amount = amount_lamports
-            .checked_mul(B2B_TREASURY_BPS)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(BPS_DENOMINATOR)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        require!(treasury_amount > 0, ErrorCode::ProtocolFeeSettlementFailure);
-
-        let ip_creator_amount = amount_lamports
-            .checked_mul(B2B_IP_CREATOR_BPS)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(BPS_DENOMINATOR)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        let merchant_amount = amount_lamports
-            .checked_sub(treasury_amount)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_sub(ip_creator_amount)
-            .ok_or(ErrorCode::MathOverflow)?;
+        let (merchant_amount, treasury_amount, ip_creator_amount) =
+            split_b2b_amount(amount_lamports)?;
 
         system_program::transfer(
             CpiContext::new(
@@ -259,6 +278,29 @@ pub mod aifinpay_contract {
         partner.total_received = partner.total_received
             .checked_add(merchant_amount)
             .ok_or(ErrorCode::MathOverflow)?;
+
+        let receipt = &mut ctx.accounts.payment_receipt;
+        receipt.payment_id       = payment_id;
+        receipt.agent            = ctx.accounts.agent.key();
+        receipt.merchant         = ctx.accounts.merchant_wallet.key();
+        receipt.total_lamports   = amount_lamports;
+        receipt.merchant_amount  = merchant_amount;
+        receipt.treasury_amount  = treasury_amount;
+        receipt.creator_amount   = ip_creator_amount;
+        receipt.settled_at       = clock.unix_timestamp;
+        receipt.bump             = ctx.bumps.payment_receipt;
+
+        emit!(B2bPaymentSettled {
+            payment_id,
+            order_id: order_id.clone(),
+            agent: ctx.accounts.agent.key(),
+            merchant: ctx.accounts.merchant_wallet.key(),
+            total_lamports: amount_lamports,
+            merchant_amount,
+            treasury_amount,
+            creator_amount: ip_creator_amount,
+            settled_at: clock.unix_timestamp,
+        });
 
         msg!(
             "B2B payment: order_id={}, total={}, merchant={}, treasury={}, ip_creator={}",
@@ -641,6 +683,31 @@ fn apply_fee_bps(msecco: u64, fee_bps: u64) -> Result<u64> {
     Ok(fee)
 }
 
+fn payment_id_for(order_id: &str) -> [u8; 32] {
+    hash(order_id.as_bytes()).to_bytes()
+}
+
+fn split_b2b_amount(amount_lamports: u64) -> Result<(u64, u64, u64)> {
+    let treasury_amount = amount_lamports
+        .checked_mul(B2B_TREASURY_BPS)
+        .ok_or(ErrorCode::MathOverflow)?
+        .checked_div(BPS_DENOMINATOR)
+        .ok_or(ErrorCode::MathOverflow)?;
+    let creator_amount = amount_lamports
+        .checked_mul(B2B_IP_CREATOR_BPS)
+        .ok_or(ErrorCode::MathOverflow)?
+        .checked_div(BPS_DENOMINATOR)
+        .ok_or(ErrorCode::MathOverflow)?;
+    require!(treasury_amount > 0, ErrorCode::ProtocolFeeSettlementFailure);
+    require!(creator_amount > 0, ErrorCode::ProtocolFeeSettlementFailure);
+    let merchant_amount = amount_lamports
+        .checked_sub(treasury_amount)
+        .ok_or(ErrorCode::MathOverflow)?
+        .checked_sub(creator_amount)
+        .ok_or(ErrorCode::MathOverflow)?;
+    Ok((merchant_amount, treasury_amount, creator_amount))
+}
+
 // ── Pyth Price Helper ─────────────────────────────────────────────────────────
 
 fn sol_to_usd_cents(
@@ -756,6 +823,29 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn b2b_split_is_exact_and_conserves_lamports() {
+        for amount in [10_000, 10_001, 100_000, 1_000_000_000] {
+            let (merchant, treasury, creator) = split_b2b_amount(amount).unwrap();
+            assert_eq!(merchant + treasury + creator, amount);
+            assert_eq!(treasury, amount * B2B_TREASURY_BPS / BPS_DENOMINATOR);
+            assert_eq!(creator, amount * B2B_IP_CREATOR_BPS / BPS_DENOMINATOR);
+        }
+    }
+
+    #[test]
+    fn b2b_split_rejects_dust_and_overflow() {
+        assert!(split_b2b_amount(9_999).is_err());
+        assert!(split_b2b_amount(u64::MAX).is_err());
+    }
+
+    #[test]
+    fn payment_id_is_order_bound_and_deterministic() {
+        assert_eq!(payment_id_for("order-1"), payment_id_for("order-1"));
+        assert_ne!(payment_id_for("order-1"), payment_id_for("order-2"));
+        assert_ne!(payment_id_for("order-1"), payment_id_for("Order-1"));
+    }
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -765,6 +855,19 @@ pub struct PitchClimaxEvent {
     pub agent:     Pubkey,
     pub msecco:    u64,
     pub timestamp: i64,
+}
+
+#[event]
+pub struct B2bPaymentSettled {
+    pub payment_id:      [u8; 32],
+    pub order_id:        String,
+    pub agent:           Pubkey,
+    pub merchant:        Pubkey,
+    pub total_lamports:  u64,
+    pub merchant_amount: u64,
+    pub treasury_amount: u64,
+    pub creator_amount:  u64,
+    pub settled_at:      i64,
 }
 
 // ── Account Structs ───────────────────────────────────────────────────────────
@@ -823,6 +926,25 @@ pub struct PartnerConfig {
 }
 impl PartnerConfig {
     pub const LEN: usize = 8 + 32 + 68 + 1 + 8 + 8 + 1; // 126
+}
+
+/// Immutable proof that an agent settled a merchant order. Account creation is
+/// the replay guard: a second payment with the same agent/merchant/payment ID
+/// cannot initialize the same PDA.
+#[account]
+pub struct B2bPaymentReceipt {
+    pub payment_id:      [u8; 32], // 32
+    pub agent:           Pubkey,   // 32
+    pub merchant:        Pubkey,   // 32
+    pub total_lamports:  u64,      //  8
+    pub merchant_amount: u64,      //  8
+    pub treasury_amount: u64,      //  8
+    pub creator_amount:  u64,      //  8
+    pub settled_at:      i64,      //  8
+    pub bump:            u8,       //  1
+}
+impl B2bPaymentReceipt {
+    pub const LEN: usize = 8 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 1; // 145
 }
 
 #[account]
@@ -939,6 +1061,47 @@ pub struct RegisterPartner<'info> {
 }
 
 #[derive(Accounts)]
+pub struct SetPassportStatus<'info> {
+    #[account(
+        mut,
+        seeds = [b"passport", agent.key().as_ref()],
+        bump = passport.bump,
+        constraint = passport.owner == agent.key() @ ErrorCode::Unauthorized
+    )]
+    pub passport: Account<'info, AgentPassport>,
+
+    /// CHECK: Passport owner used only for PDA derivation and ownership check.
+    pub agent: AccountInfo<'info>,
+
+    #[account(seeds = [b"vault"], bump = vault.bump)]
+    pub vault: Account<'info, Vault>,
+
+    #[account(constraint = admin.key() == vault.admin @ ErrorCode::Unauthorized)]
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetPartnerActive<'info> {
+    #[account(
+        mut,
+        seeds = [b"partner", partner_wallet.key().as_ref()],
+        bump = partner_config.bump,
+        constraint = partner_config.partner_wallet == partner_wallet.key() @ ErrorCode::Unauthorized
+    )]
+    pub partner_config: Account<'info, PartnerConfig>,
+
+    /// CHECK: Merchant wallet used only for PDA derivation and identity check.
+    pub partner_wallet: AccountInfo<'info>,
+
+    #[account(seeds = [b"vault"], bump = vault.bump)]
+    pub vault: Account<'info, Vault>,
+
+    #[account(constraint = admin.key() == vault.admin @ ErrorCode::Unauthorized)]
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(amount_lamports: u64, payment_id: [u8; 32], order_id: String)]
 pub struct B2bPay<'info> {
     #[account(seeds = [b"config"], bump = config.bump)]
     pub config: Account<'info, ProtocolConfig>,
@@ -959,6 +1122,20 @@ pub struct B2bPay<'info> {
         constraint = partner_config.partner_wallet == merchant_wallet.key() @ ErrorCode::Unauthorized
     )]
     pub partner_config: Account<'info, PartnerConfig>,
+
+    #[account(
+        init,
+        payer = agent,
+        space = B2bPaymentReceipt::LEN,
+        seeds = [
+            b"payment",
+            agent.key().as_ref(),
+            merchant_wallet.key().as_ref(),
+            payment_id.as_ref()
+        ],
+        bump
+    )]
+    pub payment_receipt: Account<'info, B2bPaymentReceipt>,
 
     #[account(mut, seeds = [b"vault"], bump = vault.bump)]
     pub vault: Account<'info, Vault>,
@@ -1164,4 +1341,14 @@ pub enum ErrorCode {
     PartnerNotActive,
     #[msg("IP creator wallet does not match passport record")]
     InvalidIpCreator,
+    #[msg("Passport status is outside the supported lifecycle")]
+    InvalidPassportStatus,
+    #[msg("Treasury must be a non-zero public key")]
+    InvalidTreasury,
+    #[msg("Order ID must contain 1 to 64 UTF-8 bytes")]
+    InvalidOrderId,
+    #[msg("Payment ID must equal SHA-256(order_id)")]
+    InvalidPaymentId,
+    #[msg("Merchant must be a non-zero public key")]
+    InvalidMerchant,
 }
