@@ -15,7 +15,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: security/fee-on-top-v0-6-remediation
-      - uses: dtolnay/rust-toolchain@stable
       - name: Add replay-safe fee-on-top instruction
         run: |
           python - <<'PY'
@@ -50,7 +49,7 @@ jobs:
         order_id: String,
     ) -> Result<()> {
         require!(!ctx.accounts.config.is_paused, ErrorCode::ProtocolPaused);
-        require!(!order_id.is_empty() && order_id.len() <= 64, ErrorCode::AgentIdTooLong);
+        require!(!order_id.is_empty() && order_id.len() <= 64, ErrorCode::OrderIdInvalid);
         require!(merchant_amount_lamports > 0, ErrorCode::PaymentAmountInvalid);
 
         let expected_payment_id = hash(order_id.as_bytes()).to_bytes();
@@ -73,7 +72,6 @@ jobs:
             .and_then(|v| v.checked_add(ip_creator_amount))
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Merchant receives the exact configured price first.
         system_program::transfer(
             CpiContext::new(
                 ctx.accounts.system_program.to_account_info(),
@@ -85,8 +83,6 @@ jobs:
             merchant_amount_lamports,
         )?;
 
-        // If the creator account is the treasury, combine both protocol-side
-        // fees into one transfer; otherwise transfer the slices independently.
         if ctx.accounts.ip_creator.key() == ctx.accounts.treasury.key() {
             let combined_fee = treasury_amount
                 .checked_add(ip_creator_amount)
@@ -237,7 +233,7 @@ pub struct B2bPayWithSplit<'info> {
           s = s.replace(ctx_marker, ctx + ctx_marker, 1)
 
           err_marker = '    #[msg("IP creator wallet does not match passport record")]\n    InvalidIpCreator,\n'
-          errs = '''    #[msg("B2B merchant amount must be positive")]\n    PaymentAmountInvalid,\n    #[msg("B2B payment_id must equal SHA-256(order_id)")]\n    PaymentIdMismatch,\n'''
+          errs = '''    #[msg("B2B merchant amount must be positive")]\n    PaymentAmountInvalid,\n    #[msg("B2B order ID must be 1..64 bytes")]\n    OrderIdInvalid,\n    #[msg("B2B payment_id must equal SHA-256(order_id)")]\n    PaymentIdMismatch,\n'''
           if err_marker not in s:
               raise SystemExit('error insertion marker missing')
           s = s.replace(err_marker, err_marker + errs, 1)
@@ -246,12 +242,17 @@ pub struct B2bPayWithSplit<'info> {
       - name: Rust format and compile
         working-directory: contract
         run: |
-          cargo fmt -- --check || cargo fmt
+          rustc --version
+          cargo fmt
           cargo check --locked
       - name: Commit source remediation
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add contract/src/lib.rs
+          if git diff --cached --quiet; then
+            echo "Solana source remediation already applied"
+            exit 0
+          fi
           git commit -m "security: add replay-safe Solana fee-on-top B2B instruction"
           git push origin HEAD:security/fee-on-top-v0-6-remediation
