@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.85.1
+      - uses: dtolnay/rust-toolchain@1.89.0
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
@@ -28,10 +28,10 @@ jobs:
         run: cargo fmt --check
       - name: Rust tests
         working-directory: contract
-        run: cargo test --lib
+        run: cargo test --locked --lib
       - name: Rust compile gate
         working-directory: contract
-        run: cargo check --features no-entrypoint
+        run: cargo check --locked --features no-entrypoint
       - name: IDL/source drift gate
         run: node scripts/sync-idl.mjs
       - name: Retired fee-inclusive instruction gate

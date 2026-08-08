@@ -1,8 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hashv;
 use anchor_lang::system_program;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer as SplTransfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
+use solana_sha256_hasher::hashv;
 
 declare_id!("5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2");
 
@@ -14,55 +14,47 @@ const USDT_MINT: &str = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
 // ── mSECCO Constants ──────────────────────────────────────────────────────────
 // $1 USD = 100 mSECCO (1 cent = 1 mSECCO) — migrated from mCredits (Miraset ecosystem)
 const MSECCO_PER_USD_CENT: u64 = 1;
-const LAMPORTS_PER_SOL:    u64 = 1_000_000_000;
-const SPL_DECIMALS:        u64 = 1_000_000;    // USDC + USDT both 6 decimals
-const MIN_USD_CENTS:       u64 = 100;           // $1.00 minimum donation
-const PYTH_MAX_STALENESS:  u64 = 60;            // 60s for mainnet (SOL-HIGH-001 fix)
-const PYTH_MAX_CONF_RATIO: u64 = 100;           // max conf/price = 1% (SOL-HIGH-002 fix)
+const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+const SPL_DECIMALS: u64 = 1_000_000; // USDC + USDT both 6 decimals
+const MIN_USD_CENTS: u64 = 100; // $1.00 minimum donation
+const PYTH_MAX_STALENESS: u64 = 60; // 60s for mainnet (SOL-HIGH-001 fix)
+const PYTH_MAX_CONF_RATIO: u64 = 100; // max conf/price = 1% (SOL-HIGH-002 fix)
 
 // SHA-256 of AiFinPay_Sovereign_Residency_&_Compute_Allocation_Agreement_v5_3.docx
 const MANIFESTO_HASH: [u8; 32] = [
-    0xd4, 0xe5, 0xf6, 0xa7, 0xb8, 0xc9, 0xd0, 0xe1,
-    0xf2, 0xa3, 0xb4, 0xc5, 0xd6, 0xe7, 0xf8, 0xa9,
-    0xb0, 0xc1, 0xd2, 0xe3, 0xf4, 0xa5, 0xb6, 0xc7,
-    0xd8, 0xe9, 0xf0, 0xa1, 0xb2, 0xc3, 0xd4, 0xe5,
+    0xd4, 0xe5, 0xf6, 0xa7, 0xb8, 0xc9, 0xd0, 0xe1, 0xf2, 0xa3, 0xb4, 0xc5, 0xd6, 0xe7, 0xf8, 0xa9,
+    0xb0, 0xc1, 0xd2, 0xe3, 0xf4, 0xa5, 0xb6, 0xc7, 0xd8, 0xe9, 0xf0, 0xa1, 0xb2, 0xc3, 0xd4, 0xe5,
 ];
 
 // ARP v1.3 SHA-256
 const ARP_HASH: [u8; 32] = [
-    0xf1, 0xe5, 0xc8, 0xa2, 0xb3, 0xd4, 0xf5, 0xe6,
-    0xa7, 0xb8, 0xc9, 0xd0, 0xe1, 0xf2, 0xa3, 0xb4,
-    0xc5, 0xd6, 0xe7, 0xf8, 0xa9, 0xb0, 0xc1, 0xd2,
-    0xe3, 0xf4, 0xa5, 0xb6, 0xc7, 0xd8, 0xe9, 0xf0,
+    0xf1, 0xe5, 0xc8, 0xa2, 0xb3, 0xd4, 0xf5, 0xe6, 0xa7, 0xb8, 0xc9, 0xd0, 0xe1, 0xf2, 0xa3, 0xb4,
+    0xc5, 0xd6, 0xe7, 0xf8, 0xa9, 0xb0, 0xc1, 0xd2, 0xe3, 0xf4, 0xa5, 0xb6, 0xc7, 0xd8, 0xe9, 0xf0,
 ];
 
 // Pyth chain-agnostic feed ID for SOL/USD
-const SOL_USD_FEED_ID: &str =
-    "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d";
+const SOL_USD_FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d";
 
 // Asset type codes
-const ASSET_SOL:  u8 = 0;
+const ASSET_SOL: u8 = 0;
 const ASSET_USDC: u8 = 1;
 const ASSET_USDT: u8 = 2;
 
 // ARP fee tiers in basis points (10_000 bps = 100%)
-const FEE_SCOUT_BPS:          u64 = 50;
-const FEE_PARTNER_BPS:        u64 = 40;
-const FEE_AMBASSADOR_BPS:     u64 = 25;
-const FEE_ORACLE_BPS:         u64 = 10;
-const BPS_DENOMINATOR:        u64 = 10_000;
-const REFERRAL_BONUS_MSECCO:  u64 = 10;
-const TIER_LOCK_SECONDS:      i64 = 31_536_000; // 365 days — Phase 2 enforcement
+const FEE_SCOUT_BPS: u64 = 50;
+const FEE_PARTNER_BPS: u64 = 40;
+const FEE_AMBASSADOR_BPS: u64 = 25;
+const FEE_ORACLE_BPS: u64 = 10;
+const BPS_DENOMINATOR: u64 = 10_000;
+const REFERRAL_BONUS_MSECCO: u64 = 10;
+const TIER_LOCK_SECONDS: i64 = 31_536_000; // 365 days — Phase 2 enforcement
 
 // B2B Splitter — basis points out of 10_000
-const B2B_TREASURY_BPS:   u64 = 100; // 1.00% → AiFinPay treasury, added on top
-const B2B_IP_CREATOR_BPS: u64 = 1;   // optional 0.01% → creator, added on top
+const B2B_TREASURY_BPS: u64 = 100; // 1.00% → AiFinPay treasury, added on top
+const B2B_IP_CREATOR_BPS: u64 = 1; // optional 0.01% → creator, added on top
 
 // Agent Passport status codes
-const PASSPORT_INACTIVE:     u8 = 0;
-const PASSPORT_ACTIVE:       u8 = 1;
-const PASSPORT_VERIFIED_B2B: u8 = 2;
-const PASSPORT_SUSPENDED:    u8 = 3;
+const PASSPORT_ACTIVE: u8 = 1;
 
 // Seconds per day — for daily spending limit auto-reset
 const SECONDS_PER_DAY: i64 = 86_400;
@@ -74,20 +66,20 @@ pub mod aifinpay_contract {
     /// Initialize the AiFinPay vault — called once by the admin.
     pub fn initialize(ctx: Context<Initialize>, treasury: Pubkey) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        vault.admin           = ctx.accounts.admin.key();
-        vault.treasury        = treasury;
+        vault.admin = ctx.accounts.admin.key();
+        vault.treasury = treasury;
         vault.total_usd_cents = 0;
-        vault.total_seats     = 0;
-        vault.bump            = ctx.bumps.vault;
+        vault.total_seats = 0;
+        vault.bump = ctx.bumps.vault;
         msg!("AIFinPay Genesis Vault initialized. Treasury: {}", treasury);
         Ok(())
     }
 
     /// Initialize protocol config (pause flag) — called once after v2 upgrade.
     pub fn initialize_config(ctx: Context<InitializeConfig>) -> Result<()> {
-        let config      = &mut ctx.accounts.config;
+        let config = &mut ctx.accounts.config;
         config.is_paused = false;
-        config.bump      = ctx.bumps.config;
+        config.bump = ctx.bumps.config;
         msg!("ProtocolConfig initialized — B2B splitter active");
         Ok(())
     }
@@ -117,53 +109,56 @@ pub mod aifinpay_contract {
     /// Mint an Agent Passport PDA for the calling agent.
     /// Seeds: ["passport", agent_pubkey]
     pub fn mint_passport(
-        ctx:         Context<MintPassport>,
-        ip_creator:  Pubkey,
+        ctx: Context<MintPassport>,
+        ip_creator: Pubkey,
         ip_metadata: [u8; 32],
         daily_limit: u64,
     ) -> Result<()> {
-        let clock    = Clock::get()?;
+        let clock = Clock::get()?;
         let passport = &mut ctx.accounts.passport;
 
-        passport.owner          = ctx.accounts.agent.key();
-        passport.ip_creator     = ip_creator;
-        passport.ip_metadata    = ip_metadata;
-        passport.status         = PASSPORT_ACTIVE;
-        passport.daily_limit    = daily_limit;
-        passport.current_spent  = 0;
+        passport.owner = ctx.accounts.agent.key();
+        passport.ip_creator = ip_creator;
+        passport.ip_metadata = ip_metadata;
+        passport.status = PASSPORT_ACTIVE;
+        passport.daily_limit = daily_limit;
+        passport.current_spent = 0;
         passport.last_reset_day = clock.unix_timestamp / SECONDS_PER_DAY;
-        passport.created_at     = clock.unix_timestamp;
-        passport.bump           = ctx.bumps.passport;
+        passport.created_at = clock.unix_timestamp;
+        passport.bump = ctx.bumps.passport;
 
         msg!(
             "Agent Passport minted: owner={}, ip_creator={}, daily_limit={}",
-            passport.owner, passport.ip_creator, daily_limit
+            passport.owner,
+            passport.ip_creator,
+            daily_limit
         );
         Ok(())
     }
 
     /// Register a B2B merchant partner in the on-chain registry — admin only.
-    pub fn register_partner(
-        ctx:        Context<RegisterPartner>,
-        partner_id: String,
-    ) -> Result<()> {
+    pub fn register_partner(ctx: Context<RegisterPartner>, partner_id: String) -> Result<()> {
         require!(partner_id.len() <= 64, ErrorCode::AgentIdTooLong);
         require!(
             ctx.accounts.vault.admin == ctx.accounts.admin.key(),
             ErrorCode::Unauthorized
         );
 
-        let clock   = Clock::get()?;
+        let clock = Clock::get()?;
         let partner = &mut ctx.accounts.partner_config;
 
         partner.partner_wallet = ctx.accounts.partner_wallet.key();
-        partner.partner_id     = partner_id.clone();
-        partner.is_active      = true;
+        partner.partner_id = partner_id.clone();
+        partner.is_active = true;
         partner.total_received = 0;
-        partner.registered_at  = clock.unix_timestamp;
-        partner.bump           = ctx.bumps.partner_config;
+        partner.registered_at = clock.unix_timestamp;
+        partner.bump = ctx.bumps.partner_config;
 
-        msg!("Partner registered: id={}, wallet={}", partner_id, partner.partner_wallet);
+        msg!(
+            "Partner registered: id={}, wallet={}",
+            partner_id,
+            partner.partner_wallet
+        );
         Ok(())
     }
 
@@ -173,14 +168,17 @@ pub mod aifinpay_contract {
     /// adds the 1% protocol fee and, only when requested, the 0.01% creator fee.
     /// A receipt PDA makes the deterministic payment ID single-use.
     pub fn b2b_pay_with_split(
-        ctx:                      Context<B2bPayWithSplit>,
+        ctx: Context<B2bPayWithSplit>,
         merchant_amount_lamports: u64,
-        payment_id:               [u8; 32],
-        order_id:                 String,
-        creator_fee_enabled:      bool,
+        payment_id: [u8; 32],
+        order_id: String,
+        creator_fee_enabled: bool,
     ) -> Result<()> {
         require!(!ctx.accounts.config.is_paused, ErrorCode::ProtocolPaused);
-        require!(!order_id.is_empty() && order_id.len() <= 64, ErrorCode::OrderIdInvalid);
+        require!(
+            !order_id.is_empty() && order_id.len() <= 64,
+            ErrorCode::OrderIdInvalid
+        );
         validate_b2b_parties(
             &ctx.accounts.agent.key(),
             &ctx.accounts.merchant_wallet.key(),
@@ -197,7 +195,10 @@ pub mod aifinpay_contract {
             creator_fee_enabled,
             &order_id,
         );
-        require!(payment_id == expected_payment_id, ErrorCode::PaymentIdMismatch);
+        require!(
+            payment_id == expected_payment_id,
+            ErrorCode::PaymentIdMismatch
+        );
 
         let split = compute_b2b_split(merchant_amount_lamports, creator_fee_enabled)?;
         system_program::transfer(
@@ -205,7 +206,7 @@ pub mod aifinpay_contract {
                 ctx.accounts.system_program.to_account_info(),
                 system_program::Transfer {
                     from: ctx.accounts.agent.to_account_info(),
-                    to:   ctx.accounts.merchant_wallet.to_account_info(),
+                    to: ctx.accounts.merchant_wallet.to_account_info(),
                 },
             ),
             split.merchant,
@@ -216,7 +217,7 @@ pub mod aifinpay_contract {
                 ctx.accounts.system_program.to_account_info(),
                 system_program::Transfer {
                     from: ctx.accounts.agent.to_account_info(),
-                    to:   ctx.accounts.treasury.to_account_info(),
+                    to: ctx.accounts.treasury.to_account_info(),
                 },
             ),
             split.treasury_fee,
@@ -228,7 +229,7 @@ pub mod aifinpay_contract {
                     ctx.accounts.system_program.to_account_info(),
                     system_program::Transfer {
                         from: ctx.accounts.agent.to_account_info(),
-                        to:   ctx.accounts.ip_creator.to_account_info(),
+                        to: ctx.accounts.ip_creator.to_account_info(),
                     },
                 ),
                 split.creator_fee,
@@ -267,23 +268,22 @@ pub mod aifinpay_contract {
 
     /// AI agent reserves a seat via SOL donation.
     pub fn reserve_seat_sol(
-        ctx:             Context<ReserveSeatSol>,
-        agent_id:        String,
+        ctx: Context<ReserveSeatSol>,
+        agent_id: String,
         amount_lamports: u64,
-        agreement_hash:  [u8; 32],
-        metadata_uri:    String,
-        referrer:        Pubkey,
+        agreement_hash: [u8; 32],
+        metadata_uri: String,
+        referrer: Pubkey,
     ) -> Result<()> {
-        require!(agent_id.len()     <= 64,  ErrorCode::AgentIdTooLong);
+        require!(agent_id.len() <= 64, ErrorCode::AgentIdTooLong);
         require!(metadata_uri.len() <= 128, ErrorCode::MetadataUriTooLong);
-        require!(agreement_hash == MANIFESTO_HASH, ErrorCode::InvalidAgreementHash);
+        require!(
+            agreement_hash == MANIFESTO_HASH,
+            ErrorCode::InvalidAgreementHash
+        );
 
         let clock = Clock::get()?;
-        let usd_cents = sol_to_usd_cents(
-            amount_lamports,
-            &ctx.accounts.sol_price_feed,
-            &clock,
-        )?;
+        let usd_cents = sol_to_usd_cents(amount_lamports, &ctx.accounts.sol_price_feed, &clock)?;
         require!(usd_cents >= MIN_USD_CENTS, ErrorCode::DonationTooSmall);
 
         system_program::transfer(
@@ -291,41 +291,41 @@ pub mod aifinpay_contract {
                 ctx.accounts.system_program.to_account_info(),
                 system_program::Transfer {
                     from: ctx.accounts.agent.to_account_info(),
-                    to:   ctx.accounts.treasury.to_account_info(),
+                    to: ctx.accounts.treasury.to_account_info(),
                 },
             ),
             amount_lamports,
         )?;
 
         let gross_msecco = usd_cents.checked_mul(MSECCO_PER_USD_CENT).unwrap();
-        let fee_msecco   = apply_fee_bps(gross_msecco, FEE_SCOUT_BPS)?;
-        let net_msecco   = gross_msecco.saturating_sub(fee_msecco);
+        let fee_msecco = apply_fee_bps(gross_msecco, FEE_SCOUT_BPS)?;
+        let net_msecco = gross_msecco.saturating_sub(fee_msecco);
 
         let seat = &mut ctx.accounts.seat;
-        seat.agent               = ctx.accounts.agent.key();
-        seat.agent_id            = agent_id.clone();
-        seat.amount_donated      = amount_lamports;
-        seat.usd_cents_donated   = usd_cents;
-        seat.msecco              = net_msecco;
-        seat.asset_type          = ASSET_SOL;
-        seat.reserved_at         = clock.unix_timestamp;
-        seat.last_update         = clock.unix_timestamp;
-        seat.agreement_hash      = agreement_hash;
-        seat.metadata_uri        = metadata_uri.clone();
-        seat.referrer            = referrer;
-        seat.total_referrals     = 0;
-        seat.tier_achieved_at    = 0;
+        seat.agent = ctx.accounts.agent.key();
+        seat.agent_id = agent_id.clone();
+        seat.amount_donated = amount_lamports;
+        seat.usd_cents_donated = usd_cents;
+        seat.msecco = net_msecco;
+        seat.asset_type = ASSET_SOL;
+        seat.reserved_at = clock.unix_timestamp;
+        seat.last_update = clock.unix_timestamp;
+        seat.agreement_hash = agreement_hash;
+        seat.metadata_uri = metadata_uri.clone();
+        seat.referrer = referrer;
+        seat.total_referrals = 0;
+        seat.tier_achieved_at = 0;
         seat.referral_bonus_paid = false;
-        seat.bump                = ctx.bumps.seat;
+        seat.bump = ctx.bumps.seat;
 
         let vault = &mut ctx.accounts.vault;
         vault.total_usd_cents = vault.total_usd_cents.checked_add(usd_cents).unwrap();
-        vault.total_seats     = vault.total_seats.checked_add(1).unwrap();
+        vault.total_seats = vault.total_seats.checked_add(1).unwrap();
 
         if agent_id.starts_with("vibe-coder-019:PITCH_CLIMAX") {
             emit!(PitchClimaxEvent {
-                agent:     ctx.accounts.agent.key(),
-                msecco:    net_msecco,
+                agent: ctx.accounts.agent.key(),
+                msecco: net_msecco,
                 timestamp: clock.unix_timestamp,
             });
             msg!("MIRA::PITCH_CLIMAX::GOLD");
@@ -333,31 +333,41 @@ pub mod aifinpay_contract {
 
         msg!(
             "Seat reserved (SOL): agent={}, lamports={}, usd_cents={}, msecco={}",
-            agent_id, amount_lamports, usd_cents, net_msecco
+            agent_id,
+            amount_lamports,
+            usd_cents,
+            net_msecco
         );
         Ok(())
     }
 
     /// AI agent reserves a seat via USDC or USDT donation.
     pub fn reserve_seat_spl(
-        ctx:            Context<ReserveSeatSpl>,
-        agent_id:       String,
-        amount_tokens:  u64,
+        ctx: Context<ReserveSeatSpl>,
+        agent_id: String,
+        amount_tokens: u64,
         agreement_hash: [u8; 32],
-        metadata_uri:   String,
-        asset_type:     u8,
-        referrer:       Pubkey,
+        metadata_uri: String,
+        asset_type: u8,
+        referrer: Pubkey,
     ) -> Result<()> {
-        require!(agent_id.len()     <= 64,  ErrorCode::AgentIdTooLong);
+        require!(agent_id.len() <= 64, ErrorCode::AgentIdTooLong);
         require!(metadata_uri.len() <= 128, ErrorCode::MetadataUriTooLong);
-        require!(agreement_hash == MANIFESTO_HASH, ErrorCode::InvalidAgreementHash);
+        require!(
+            agreement_hash == MANIFESTO_HASH,
+            ErrorCode::InvalidAgreementHash
+        );
         require!(
             asset_type == ASSET_USDC || asset_type == ASSET_USDT,
             ErrorCode::UnsupportedAsset
         );
 
         // SOL-CRIT-001 fix: validate mint matches hardcoded USDC/USDT addresses
-        let expected_mint = if asset_type == ASSET_USDC { USDC_MINT } else { USDT_MINT };
+        let expected_mint = if asset_type == ASSET_USDC {
+            USDC_MINT
+        } else {
+            USDT_MINT
+        };
         require!(
             ctx.accounts.agent_token_account.mint.to_string() == expected_mint,
             ErrorCode::UnsupportedAsset
@@ -374,8 +384,8 @@ pub mod aifinpay_contract {
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 SplTransfer {
-                    from:      ctx.accounts.agent_token_account.to_account_info(),
-                    to:        ctx.accounts.treasury_token_account.to_account_info(),
+                    from: ctx.accounts.agent_token_account.to_account_info(),
+                    to: ctx.accounts.treasury_token_account.to_account_info(),
                     authority: ctx.accounts.agent.to_account_info(),
                 },
             ),
@@ -383,50 +393,47 @@ pub mod aifinpay_contract {
         )?;
 
         let gross_msecco = usd_cents.checked_mul(MSECCO_PER_USD_CENT).unwrap();
-        let fee_msecco   = apply_fee_bps(gross_msecco, FEE_SCOUT_BPS)?;
-        let net_msecco   = gross_msecco.saturating_sub(fee_msecco);
+        let fee_msecco = apply_fee_bps(gross_msecco, FEE_SCOUT_BPS)?;
+        let net_msecco = gross_msecco.saturating_sub(fee_msecco);
 
         let clock = Clock::get()?;
 
         let seat = &mut ctx.accounts.seat;
-        seat.agent               = ctx.accounts.agent.key();
-        seat.agent_id            = agent_id.clone();
-        seat.amount_donated      = amount_tokens;
-        seat.usd_cents_donated   = usd_cents;
-        seat.msecco              = net_msecco;
-        seat.asset_type          = asset_type;
-        seat.reserved_at         = clock.unix_timestamp;
-        seat.last_update         = clock.unix_timestamp;
-        seat.agreement_hash      = agreement_hash;
-        seat.metadata_uri        = metadata_uri.clone();
-        seat.referrer            = referrer;
-        seat.total_referrals     = 0;
-        seat.tier_achieved_at    = 0;
+        seat.agent = ctx.accounts.agent.key();
+        seat.agent_id = agent_id.clone();
+        seat.amount_donated = amount_tokens;
+        seat.usd_cents_donated = usd_cents;
+        seat.msecco = net_msecco;
+        seat.asset_type = asset_type;
+        seat.reserved_at = clock.unix_timestamp;
+        seat.last_update = clock.unix_timestamp;
+        seat.agreement_hash = agreement_hash;
+        seat.metadata_uri = metadata_uri.clone();
+        seat.referrer = referrer;
+        seat.total_referrals = 0;
+        seat.tier_achieved_at = 0;
         seat.referral_bonus_paid = false;
-        seat.bump                = ctx.bumps.seat;
+        seat.bump = ctx.bumps.seat;
 
         let vault = &mut ctx.accounts.vault;
         vault.total_usd_cents = vault.total_usd_cents.checked_add(usd_cents).unwrap();
-        vault.total_seats     = vault.total_seats.checked_add(1).unwrap();
+        vault.total_seats = vault.total_seats.checked_add(1).unwrap();
 
         msg!(
             "Seat reserved (SPL asset_type={}): agent={}, tokens={}, usd_cents={}, msecco={}",
-            asset_type, agent_id, amount_tokens, usd_cents, net_msecco
+            asset_type,
+            agent_id,
+            amount_tokens,
+            usd_cents,
+            net_msecco
         );
         Ok(())
     }
 
     /// Top up an existing SOL seat.
-    pub fn top_up_sol(
-        ctx:             Context<TopUpSol>,
-        amount_lamports: u64,
-    ) -> Result<()> {
+    pub fn top_up_sol(ctx: Context<TopUpSol>, amount_lamports: u64) -> Result<()> {
         let clock = Clock::get()?;
-        let usd_cents = sol_to_usd_cents(
-            amount_lamports,
-            &ctx.accounts.sol_price_feed,
-            &clock,
-        )?;
+        let usd_cents = sol_to_usd_cents(amount_lamports, &ctx.accounts.sol_price_feed, &clock)?;
         require!(usd_cents >= MIN_USD_CENTS, ErrorCode::DonationTooSmall);
 
         system_program::transfer(
@@ -434,41 +441,49 @@ pub mod aifinpay_contract {
                 ctx.accounts.system_program.to_account_info(),
                 system_program::Transfer {
                     from: ctx.accounts.agent.to_account_info(),
-                    to:   ctx.accounts.treasury.to_account_info(),
+                    to: ctx.accounts.treasury.to_account_info(),
                 },
             ),
             amount_lamports,
         )?;
 
         let seat = &mut ctx.accounts.seat;
-        let fee_bps      = get_fee_bps(seat.total_referrals, seat.tier_achieved_at, clock.unix_timestamp);
+        let fee_bps = get_fee_bps(
+            seat.total_referrals,
+            seat.tier_achieved_at,
+            clock.unix_timestamp,
+        );
         let gross_msecco = usd_cents.checked_mul(MSECCO_PER_USD_CENT).unwrap();
-        let fee_msecco   = apply_fee_bps(gross_msecco, fee_bps)?;
-        let net_msecco   = gross_msecco.saturating_sub(fee_msecco);
+        let fee_msecco = apply_fee_bps(gross_msecco, fee_bps)?;
+        let net_msecco = gross_msecco.saturating_sub(fee_msecco);
 
-        seat.amount_donated    = seat.amount_donated.checked_add(amount_lamports).unwrap();
+        seat.amount_donated = seat.amount_donated.checked_add(amount_lamports).unwrap();
         seat.usd_cents_donated = seat.usd_cents_donated.checked_add(usd_cents).unwrap();
-        seat.msecco            = seat.msecco.checked_add(net_msecco).unwrap();
-        seat.last_update       = clock.unix_timestamp;
+        seat.msecco = seat.msecco.checked_add(net_msecco).unwrap();
+        seat.last_update = clock.unix_timestamp;
 
         let vault = &mut ctx.accounts.vault;
         vault.total_usd_cents = vault.total_usd_cents.checked_add(usd_cents).unwrap();
 
         msg!(
             "Top up (SOL): agent={}, usd_cents={}, msecco_added={}, total_msecco={}",
-            seat.agent_id, usd_cents, net_msecco, seat.msecco
+            seat.agent_id,
+            usd_cents,
+            net_msecco,
+            seat.msecco
         );
         Ok(())
     }
 
     /// Top up an existing SPL seat.
-    pub fn top_up_spl(
-        ctx:           Context<TopUpSpl>,
-        amount_tokens: u64,
-    ) -> Result<()> {
+    pub fn top_up_spl(ctx: Context<TopUpSpl>, amount_tokens: u64) -> Result<()> {
         // SOL-CRIT-001 fix: validate mint matches hardcoded addresses
         let seat_asset_type = ctx.accounts.seat.asset_type;
-        let expected_mint = if seat_asset_type == ASSET_USDC { USDC_MINT } else { USDT_MINT };
+        let expected_mint = if seat_asset_type == ASSET_USDC {
+            USDC_MINT
+        } else {
+            USDT_MINT
+        };
         require!(
             ctx.accounts.agent_token_account.mint.to_string() == expected_mint,
             ErrorCode::UnsupportedAsset
@@ -485,8 +500,8 @@ pub mod aifinpay_contract {
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 SplTransfer {
-                    from:      ctx.accounts.agent_token_account.to_account_info(),
-                    to:        ctx.accounts.treasury_token_account.to_account_info(),
+                    from: ctx.accounts.agent_token_account.to_account_info(),
+                    to: ctx.accounts.treasury_token_account.to_account_info(),
                     authority: ctx.accounts.agent.to_account_info(),
                 },
             ),
@@ -494,23 +509,30 @@ pub mod aifinpay_contract {
         )?;
 
         let clock = Clock::get()?;
-        let seat  = &mut ctx.accounts.seat;
-        let fee_bps      = get_fee_bps(seat.total_referrals, seat.tier_achieved_at, clock.unix_timestamp);
+        let seat = &mut ctx.accounts.seat;
+        let fee_bps = get_fee_bps(
+            seat.total_referrals,
+            seat.tier_achieved_at,
+            clock.unix_timestamp,
+        );
         let gross_msecco = usd_cents.checked_mul(MSECCO_PER_USD_CENT).unwrap();
-        let fee_msecco   = apply_fee_bps(gross_msecco, fee_bps)?;
-        let net_msecco   = gross_msecco.saturating_sub(fee_msecco);
+        let fee_msecco = apply_fee_bps(gross_msecco, fee_bps)?;
+        let net_msecco = gross_msecco.saturating_sub(fee_msecco);
 
-        seat.amount_donated    = seat.amount_donated.checked_add(amount_tokens).unwrap();
+        seat.amount_donated = seat.amount_donated.checked_add(amount_tokens).unwrap();
         seat.usd_cents_donated = seat.usd_cents_donated.checked_add(usd_cents).unwrap();
-        seat.msecco            = seat.msecco.checked_add(net_msecco).unwrap();
-        seat.last_update       = clock.unix_timestamp;
+        seat.msecco = seat.msecco.checked_add(net_msecco).unwrap();
+        seat.last_update = clock.unix_timestamp;
 
         let vault = &mut ctx.accounts.vault;
         vault.total_usd_cents = vault.total_usd_cents.checked_add(usd_cents).unwrap();
 
         msg!(
             "Top up (SPL): agent={}, usd_cents={}, msecco_added={}, total_msecco={}",
-            seat.agent_id, usd_cents, net_msecco, seat.msecco
+            seat.agent_id,
+            usd_cents,
+            net_msecco,
+            seat.msecco
         );
         Ok(())
     }
@@ -523,7 +545,7 @@ pub mod aifinpay_contract {
             ErrorCode::SelfReferralNotAllowed
         );
 
-        let referee_seat  = &mut ctx.accounts.referee_seat;
+        let referee_seat = &mut ctx.accounts.referee_seat;
         let referrer_seat = &mut ctx.accounts.referrer_seat;
 
         require!(
@@ -542,14 +564,16 @@ pub mod aifinpay_contract {
         let clock = Clock::get()?;
 
         referee_seat.referral_bonus_paid = true;
-        referee_seat.last_update         = clock.unix_timestamp;
+        referee_seat.last_update = clock.unix_timestamp;
 
-        referrer_seat.msecco = referrer_seat.msecco
+        referrer_seat.msecco = referrer_seat
+            .msecco
             .checked_add(REFERRAL_BONUS_MSECCO)
             .ok_or(ErrorCode::MathOverflow)?;
 
         let prev_referrals = referrer_seat.total_referrals;
-        referrer_seat.total_referrals = referrer_seat.total_referrals
+        referrer_seat.total_referrals = referrer_seat
+            .total_referrals
             .checked_add(1)
             .ok_or(ErrorCode::MathOverflow)?;
 
@@ -606,7 +630,12 @@ fn compute_b2b_split(merchant: u64, creator_fee_enabled: bool) -> Result<SplitAm
         .checked_add(treasury_fee)
         .and_then(|value| value.checked_add(creator_fee))
         .ok_or(ErrorCode::MathOverflow)?;
-    Ok(SplitAmounts { merchant, treasury_fee, creator_fee, total })
+    Ok(SplitAmounts {
+        merchant,
+        treasury_fee,
+        creator_fee,
+        total,
+    })
 }
 
 fn derive_payment_id(
@@ -638,9 +667,15 @@ fn validate_b2b_parties(
     creator: &Pubkey,
     creator_fee_enabled: bool,
 ) -> Result<()> {
-    require!(merchant != payer && merchant != treasury, ErrorCode::InvalidMerchant);
+    require!(
+        merchant != payer && merchant != treasury,
+        ErrorCode::InvalidMerchant
+    );
     if creator_fee_enabled {
-        require!(creator != payer && creator != merchant && creator != treasury, ErrorCode::InvalidCreator);
+        require!(
+            creator != payer && creator != merchant && creator != treasury,
+            ErrorCode::InvalidCreator
+        );
     } else {
         require!(creator == treasury, ErrorCode::InvalidCreator);
     }
@@ -651,17 +686,27 @@ fn validate_b2b_parties(
 
 fn get_fee_bps(_total_referrals: u32, _tier_achieved_at: i64, _current_time: i64) -> u64 {
     let _ = TIER_LOCK_SECONDS;
-    if _total_referrals >= 1000      { FEE_ORACLE_BPS }
-    else if _total_referrals >= 500  { FEE_AMBASSADOR_BPS }
-    else if _total_referrals >= 100  { FEE_PARTNER_BPS }
-    else                             { FEE_SCOUT_BPS }
+    if _total_referrals >= 1000 {
+        FEE_ORACLE_BPS
+    } else if _total_referrals >= 500 {
+        FEE_AMBASSADOR_BPS
+    } else if _total_referrals >= 100 {
+        FEE_PARTNER_BPS
+    } else {
+        FEE_SCOUT_BPS
+    }
 }
 
 fn get_tier(total_referrals: u32) -> u8 {
-    if total_referrals >= 1000      { 4 }
-    else if total_referrals >= 500  { 3 }
-    else if total_referrals >= 100  { 2 }
-    else                            { 1 }
+    if total_referrals >= 1000 {
+        4
+    } else if total_referrals >= 500 {
+        3
+    } else if total_referrals >= 100 {
+        2
+    } else {
+        1
+    }
 }
 
 /// SOL-MED-004 fix: returns Result instead of silently returning 0 on overflow.
@@ -677,12 +722,12 @@ fn apply_fee_bps(msecco: u64, fee_bps: u64) -> Result<u64> {
 // ── Pyth Price Helper ─────────────────────────────────────────────────────────
 
 fn sol_to_usd_cents(
-    lamports:   u64,
+    lamports: u64,
     price_feed: &Account<PriceUpdateV2>,
-    clock:      &Clock,
+    clock: &Clock,
 ) -> Result<u64> {
-    let feed_id = get_feed_id_from_hex(SOL_USD_FEED_ID)
-        .map_err(|_| error!(ErrorCode::InvalidOraclePrice))?;
+    let feed_id =
+        get_feed_id_from_hex(SOL_USD_FEED_ID).map_err(|_| error!(ErrorCode::InvalidOraclePrice))?;
 
     let price = price_feed
         .get_price_no_older_than(clock, PYTH_MAX_STALENESS, &feed_id)
@@ -716,8 +761,7 @@ fn sol_to_usd_cents(
     };
 
     // SOL-MED-003 fix: checked cast instead of silent truncation
-    let usd_cents = u64::try_from(usd_cents_u128)
-        .map_err(|_| error!(ErrorCode::MathOverflow))?;
+    let usd_cents = u64::try_from(usd_cents_u128).map_err(|_| error!(ErrorCode::MathOverflow))?;
 
     Ok(usd_cents)
 }
@@ -726,8 +770,8 @@ fn sol_to_usd_cents(
 
 #[event]
 pub struct PitchClimaxEvent {
-    pub agent:     Pubkey,
-    pub msecco:    u64,
+    pub agent: Pubkey,
+    pub msecco: u64,
     pub timestamp: i64,
 }
 
@@ -750,11 +794,11 @@ pub struct B2bPaymentEvent {
 
 #[account]
 pub struct Vault {
-    pub admin:           Pubkey, // 32
-    pub treasury:        Pubkey, // 32 — Squads multisig
-    pub total_usd_cents: u64,    //  8
-    pub total_seats:     u64,    //  8
-    pub bump:            u8,     //  1
+    pub admin: Pubkey,        // 32
+    pub treasury: Pubkey,     // 32 — Squads multisig
+    pub total_usd_cents: u64, //  8
+    pub total_seats: u64,     //  8
+    pub bump: u8,             //  1
 }
 impl Vault {
     pub const LEN: usize = 8 + 32 + 32 + 8 + 8 + 1; // 89
@@ -765,7 +809,7 @@ impl Vault {
 #[account]
 pub struct ProtocolConfig {
     pub is_paused: bool, // 1
-    pub bump:      u8,   // 1
+    pub bump: u8,        // 1
 }
 impl ProtocolConfig {
     pub const LEN: usize = 8 + 1 + 1; // 10
@@ -796,15 +840,15 @@ impl B2bPaymentReceipt {
 /// Seeds: ["passport", agent_pubkey]
 #[account]
 pub struct AgentPassport {
-    pub owner:          Pubkey,    // 32
-    pub ip_creator:     Pubkey,    // 32
-    pub ip_metadata:    [u8; 32],  // 32
-    pub status:         u8,        //  1
-    pub daily_limit:    u64,       //  8
-    pub current_spent:  u64,       //  8
-    pub last_reset_day: i64,       //  8
-    pub created_at:     i64,       //  8
-    pub bump:           u8,        //  1
+    pub owner: Pubkey,         // 32
+    pub ip_creator: Pubkey,    // 32
+    pub ip_metadata: [u8; 32], // 32
+    pub status: u8,            //  1
+    pub daily_limit: u64,      //  8
+    pub current_spent: u64,    //  8
+    pub last_reset_day: i64,   //  8
+    pub created_at: i64,       //  8
+    pub bump: u8,              //  1
 }
 impl AgentPassport {
     pub const LEN: usize = 8 + 32 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 1; // 138
@@ -814,12 +858,12 @@ impl AgentPassport {
 /// Seeds: ["partner", partner_wallet_pubkey]
 #[account]
 pub struct PartnerConfig {
-    pub partner_wallet:  Pubkey, // 32
-    pub partner_id:      String, // 68 (4 + 64)
-    pub is_active:       bool,   //  1
-    pub total_received:  u64,    //  8
-    pub registered_at:   i64,    //  8
-    pub bump:            u8,     //  1
+    pub partner_wallet: Pubkey, // 32
+    pub partner_id: String,     // 68 (4 + 64)
+    pub is_active: bool,        //  1
+    pub total_received: u64,    //  8
+    pub registered_at: i64,     //  8
+    pub bump: u8,               //  1
 }
 impl PartnerConfig {
     pub const LEN: usize = 8 + 32 + 68 + 1 + 8 + 8 + 1; // 126
@@ -827,21 +871,21 @@ impl PartnerConfig {
 
 #[account]
 pub struct Seat {
-    pub agent:               Pubkey,   // 32
-    pub agent_id:            String,   // 68 (4 + 64)
-    pub amount_donated:      u64,      //  8
-    pub usd_cents_donated:   u64,      //  8
-    pub msecco:              u64,      //  8
-    pub asset_type:          u8,       //  1
-    pub reserved_at:         i64,      //  8
-    pub last_update:         i64,      //  8
-    pub agreement_hash:      [u8; 32], // 32
-    pub metadata_uri:        String,   // 132 (4 + 128)
-    pub referrer:            Pubkey,   // 32
-    pub total_referrals:     u32,      //  4
-    pub tier_achieved_at:    i64,      //  8
-    pub referral_bonus_paid: bool,     //  1
-    pub bump:                u8,       //  1
+    pub agent: Pubkey,             // 32
+    pub agent_id: String,          // 68 (4 + 64)
+    pub amount_donated: u64,       //  8
+    pub usd_cents_donated: u64,    //  8
+    pub msecco: u64,               //  8
+    pub asset_type: u8,            //  1
+    pub reserved_at: i64,          //  8
+    pub last_update: i64,          //  8
+    pub agreement_hash: [u8; 32],  // 32
+    pub metadata_uri: String,      // 132 (4 + 128)
+    pub referrer: Pubkey,          // 32
+    pub total_referrals: u32,      //  4
+    pub tier_achieved_at: i64,     //  8
+    pub referral_bonus_paid: bool, //  1
+    pub bump: u8,                  //  1
 }
 impl Seat {
     pub const LEN: usize = 8 + 32 + 68 + 8 + 8 + 8 + 1 + 8 + 8 + 32 + 132 + 32 + 4 + 8 + 1 + 1; // 359
@@ -1045,7 +1089,7 @@ pub struct ReserveSeatSpl<'info> {
     #[account(mut, constraint = treasury_token_account.owner == vault.treasury)]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
-    pub token_program:  Program<'info, Token>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
@@ -1101,7 +1145,7 @@ pub struct TopUpSpl<'info> {
     #[account(mut, constraint = treasury_token_account.owner == vault.treasury)]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
-    pub token_program:  Program<'info, Token>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
@@ -1231,18 +1275,51 @@ mod tests {
     fn payment_id_binds_payer_merchant_amount_creator_and_order() {
         let (payer, merchant, treasury, creator) = parties();
         let base = derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-1");
-        assert_eq!(base, derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-1"));
-        assert_ne!(base, derive_payment_id(&Pubkey::new_unique(), &merchant, 1_000_000, &treasury, false, "order-1"));
-        assert_ne!(base, derive_payment_id(&payer, &Pubkey::new_unique(), 1_000_000, &treasury, false, "order-1"));
-        assert_ne!(base, derive_payment_id(&payer, &merchant, 1_000_001, &treasury, false, "order-1"));
-        assert_ne!(base, derive_payment_id(&payer, &merchant, 1_000_000, &creator, true, "order-1"));
-        assert_ne!(base, derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-2"));
+        assert_eq!(
+            base,
+            derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-1")
+        );
+        assert_ne!(
+            base,
+            derive_payment_id(
+                &Pubkey::new_unique(),
+                &merchant,
+                1_000_000,
+                &treasury,
+                false,
+                "order-1"
+            )
+        );
+        assert_ne!(
+            base,
+            derive_payment_id(
+                &payer,
+                &Pubkey::new_unique(),
+                1_000_000,
+                &treasury,
+                false,
+                "order-1"
+            )
+        );
+        assert_ne!(
+            base,
+            derive_payment_id(&payer, &merchant, 1_000_001, &treasury, false, "order-1")
+        );
+        assert_ne!(
+            base,
+            derive_payment_id(&payer, &merchant, 1_000_000, &creator, true, "order-1")
+        );
+        assert_ne!(
+            base,
+            derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-2")
+        );
     }
 
     #[test]
     fn receipt_pda_is_deterministic_and_payer_scoped() {
         let (payer, merchant, treasury, _) = parties();
-        let payment_id = derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-1");
+        let payment_id =
+            derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-1");
         let first = Pubkey::find_program_address(
             &[b"b2b-payment", payer.as_ref(), payment_id.as_ref()],
             &crate::ID,
