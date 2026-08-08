@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::hash::hashv;
 use anchor_lang::system_program;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer as SplTransfer};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
@@ -54,9 +55,8 @@ const REFERRAL_BONUS_MSECCO:  u64 = 10;
 const TIER_LOCK_SECONDS:      i64 = 31_536_000; // 365 days — Phase 2 enforcement
 
 // B2B Splitter — basis points out of 10_000
-const B2B_TREASURY_BPS:   u64 = 100; // 1.00% → AiFinPay treasury
-const B2B_IP_CREATOR_BPS: u64 = 1;   // 0.01% → IP creator (royalty)
-                                      // 98.99% → merchant (remainder)
+const B2B_TREASURY_BPS:   u64 = 100; // 1.00% → AiFinPay treasury, added on top
+const B2B_IP_CREATOR_BPS: u64 = 1;   // optional 0.01% → creator, added on top
 
 // Agent Passport status codes
 const PASSPORT_INACTIVE:     u8 = 0;
@@ -167,54 +167,49 @@ pub mod aifinpay_contract {
         Ok(())
     }
 
-    /// Execute a B2B SOL payment with atomic revenue split.
-    /// Split: 98.99% merchant / 1.00% AiFinPay treasury / 0.01% IP creator.
-    pub fn b2b_pay(
-        ctx:             Context<B2bPay>,
-        amount_lamports: u64,
-        order_id:        String,
+    /// Execute the canonical v0.6 native-SOL fee-on-top settlement.
+    ///
+    /// The merchant receives the explicit merchant amount in full. The payer
+    /// adds the 1% protocol fee and, only when requested, the 0.01% creator fee.
+    /// A receipt PDA makes the deterministic payment ID single-use.
+    pub fn b2b_pay_with_split(
+        ctx:                      Context<B2bPayWithSplit>,
+        merchant_amount_lamports: u64,
+        payment_id:               [u8; 32],
+        order_id:                 String,
+        creator_fee_enabled:      bool,
     ) -> Result<()> {
         require!(!ctx.accounts.config.is_paused, ErrorCode::ProtocolPaused);
-        require!(order_id.len() <= 64, ErrorCode::AgentIdTooLong);
+        require!(!order_id.is_empty() && order_id.len() <= 64, ErrorCode::OrderIdInvalid);
+        validate_b2b_parties(
+            &ctx.accounts.agent.key(),
+            &ctx.accounts.merchant_wallet.key(),
+            &ctx.accounts.treasury.key(),
+            &ctx.accounts.ip_creator.key(),
+            creator_fee_enabled,
+        )?;
 
-        let passport = &mut ctx.accounts.passport;
-        require!(
-            passport.status == PASSPORT_VERIFIED_B2B,
-            ErrorCode::AgentNotVerifiedB2B
+        let expected_payment_id = derive_payment_id(
+            &ctx.accounts.agent.key(),
+            &ctx.accounts.merchant_wallet.key(),
+            merchant_amount_lamports,
+            &ctx.accounts.ip_creator.key(),
+            creator_fee_enabled,
+            &order_id,
         );
+        require!(payment_id == expected_payment_id, ErrorCode::PaymentIdMismatch);
 
-        let clock = Clock::get()?;
-        let today = clock.unix_timestamp / SECONDS_PER_DAY;
-        if today > passport.last_reset_day {
-            passport.current_spent  = 0;
-            passport.last_reset_day = today;
-        }
-        if passport.daily_limit > 0 {
-            let new_spent = passport.current_spent
-                .checked_add(amount_lamports)
-                .ok_or(ErrorCode::MathOverflow)?;
-            require!(new_spent <= passport.daily_limit, ErrorCode::DailyLimitExceeded);
-        }
-
-        let treasury_amount = amount_lamports
-            .checked_mul(B2B_TREASURY_BPS)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(BPS_DENOMINATOR)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        require!(treasury_amount > 0, ErrorCode::ProtocolFeeSettlementFailure);
-
-        let ip_creator_amount = amount_lamports
-            .checked_mul(B2B_IP_CREATOR_BPS)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(BPS_DENOMINATOR)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        let merchant_amount = amount_lamports
-            .checked_sub(treasury_amount)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_sub(ip_creator_amount)
-            .ok_or(ErrorCode::MathOverflow)?;
+        let split = compute_b2b_split(merchant_amount_lamports, creator_fee_enabled)?;
+        system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                system_program::Transfer {
+                    from: ctx.accounts.agent.to_account_info(),
+                    to:   ctx.accounts.merchant_wallet.to_account_info(),
+                },
+            ),
+            split.merchant,
+        )?;
 
         system_program::transfer(
             CpiContext::new(
@@ -224,10 +219,10 @@ pub mod aifinpay_contract {
                     to:   ctx.accounts.treasury.to_account_info(),
                 },
             ),
-            treasury_amount,
+            split.treasury_fee,
         )?;
 
-        if ip_creator_amount > 0 {
+        if split.creator_fee > 0 {
             system_program::transfer(
                 CpiContext::new(
                     ctx.accounts.system_program.to_account_info(),
@@ -236,34 +231,37 @@ pub mod aifinpay_contract {
                         to:   ctx.accounts.ip_creator.to_account_info(),
                     },
                 ),
-                ip_creator_amount,
+                split.creator_fee,
             )?;
         }
 
-        system_program::transfer(
-            CpiContext::new(
-                ctx.accounts.system_program.to_account_info(),
-                system_program::Transfer {
-                    from: ctx.accounts.agent.to_account_info(),
-                    to:   ctx.accounts.merchant_wallet.to_account_info(),
-                },
-            ),
-            merchant_amount,
-        )?;
+        let receipt = &mut ctx.accounts.payment_receipt;
+        receipt.payer = ctx.accounts.agent.key();
+        receipt.merchant = ctx.accounts.merchant_wallet.key();
+        receipt.treasury = ctx.accounts.treasury.key();
+        receipt.creator = ctx.accounts.ip_creator.key();
+        receipt.payment_id = payment_id;
+        receipt.merchant_amount = split.merchant;
+        receipt.treasury_fee = split.treasury_fee;
+        receipt.creator_fee = split.creator_fee;
+        receipt.total_amount = split.total;
+        receipt.created_at = Clock::get()?.unix_timestamp;
+        receipt.creator_fee_enabled = creator_fee_enabled;
+        receipt.bump = ctx.bumps.payment_receipt;
 
-        passport.current_spent = passport.current_spent
-            .checked_add(amount_lamports)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        let partner = &mut ctx.accounts.partner_config;
-        partner.total_received = partner.total_received
-            .checked_add(merchant_amount)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        msg!(
-            "B2B payment: order_id={}, total={}, merchant={}, treasury={}, ip_creator={}",
-            order_id, amount_lamports, merchant_amount, treasury_amount, ip_creator_amount
-        );
+        emit!(B2bPaymentEvent {
+            payment_id,
+            payer: receipt.payer,
+            merchant: receipt.merchant,
+            treasury: receipt.treasury,
+            creator: receipt.creator,
+            merchant_amount: split.merchant,
+            treasury_fee: split.treasury_fee,
+            creator_fee: split.creator_fee,
+            total_amount: split.total,
+            creator_fee_enabled,
+            order_id,
+        });
         Ok(())
     }
 
@@ -574,6 +572,81 @@ pub mod aifinpay_contract {
     }
 }
 
+// ── Canonical v0.6 B2B helpers ───────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SplitAmounts {
+    merchant: u64,
+    treasury_fee: u64,
+    creator_fee: u64,
+    total: u64,
+}
+
+fn compute_b2b_split(merchant: u64, creator_fee_enabled: bool) -> Result<SplitAmounts> {
+    require!(merchant > 0, ErrorCode::PaymentAmountInvalid);
+    let treasury_fee = merchant
+        .checked_mul(B2B_TREASURY_BPS)
+        .ok_or(ErrorCode::MathOverflow)?
+        .checked_div(BPS_DENOMINATOR)
+        .ok_or(ErrorCode::MathOverflow)?;
+    require!(treasury_fee > 0, ErrorCode::ProtocolFeeSettlementFailure);
+
+    let creator_fee = if creator_fee_enabled {
+        let fee = merchant
+            .checked_mul(B2B_IP_CREATOR_BPS)
+            .ok_or(ErrorCode::MathOverflow)?
+            .checked_div(BPS_DENOMINATOR)
+            .ok_or(ErrorCode::MathOverflow)?;
+        require!(fee > 0, ErrorCode::CreatorFeeUnderflow);
+        fee
+    } else {
+        0
+    };
+    let total = merchant
+        .checked_add(treasury_fee)
+        .and_then(|value| value.checked_add(creator_fee))
+        .ok_or(ErrorCode::MathOverflow)?;
+    Ok(SplitAmounts { merchant, treasury_fee, creator_fee, total })
+}
+
+fn derive_payment_id(
+    payer: &Pubkey,
+    merchant: &Pubkey,
+    merchant_amount: u64,
+    creator: &Pubkey,
+    creator_fee_enabled: bool,
+    order_id: &str,
+) -> [u8; 32] {
+    let amount = merchant_amount.to_le_bytes();
+    let creator_flag = [u8::from(creator_fee_enabled)];
+    hashv(&[
+        b"AiFinPay-solana-payment-v1",
+        payer.as_ref(),
+        merchant.as_ref(),
+        &amount,
+        creator.as_ref(),
+        &creator_flag,
+        order_id.as_bytes(),
+    ])
+    .to_bytes()
+}
+
+fn validate_b2b_parties(
+    payer: &Pubkey,
+    merchant: &Pubkey,
+    treasury: &Pubkey,
+    creator: &Pubkey,
+    creator_fee_enabled: bool,
+) -> Result<()> {
+    require!(merchant != payer && merchant != treasury, ErrorCode::InvalidMerchant);
+    if creator_fee_enabled {
+        require!(creator != payer && creator != merchant && creator != treasury, ErrorCode::InvalidCreator);
+    } else {
+        require!(creator == treasury, ErrorCode::InvalidCreator);
+    }
+    Ok(())
+}
+
 // ── ARP Fee Helpers ───────────────────────────────────────────────────────────
 
 fn get_fee_bps(_total_referrals: u32, _tier_achieved_at: i64, _current_time: i64) -> u64 {
@@ -658,6 +731,21 @@ pub struct PitchClimaxEvent {
     pub timestamp: i64,
 }
 
+#[event]
+pub struct B2bPaymentEvent {
+    pub payment_id: [u8; 32],
+    pub payer: Pubkey,
+    pub merchant: Pubkey,
+    pub treasury: Pubkey,
+    pub creator: Pubkey,
+    pub merchant_amount: u64,
+    pub treasury_fee: u64,
+    pub creator_fee: u64,
+    pub total_amount: u64,
+    pub creator_fee_enabled: bool,
+    pub order_id: String,
+}
+
 // ── Account Structs ───────────────────────────────────────────────────────────
 
 #[account]
@@ -681,6 +769,27 @@ pub struct ProtocolConfig {
 }
 impl ProtocolConfig {
     pub const LEN: usize = 8 + 1 + 1; // 10
+}
+
+/// Single-use native-SOL payment receipt.
+/// Seeds: ["b2b-payment", payer, payment_id]
+#[account]
+pub struct B2bPaymentReceipt {
+    pub payer: Pubkey,
+    pub merchant: Pubkey,
+    pub treasury: Pubkey,
+    pub creator: Pubkey,
+    pub payment_id: [u8; 32],
+    pub merchant_amount: u64,
+    pub treasury_fee: u64,
+    pub creator_fee: u64,
+    pub total_amount: u64,
+    pub created_at: i64,
+    pub creator_fee_enabled: bool,
+    pub bump: u8,
+}
+impl B2bPaymentReceipt {
+    pub const LEN: usize = 8 + (5 * 32) + (5 * 8) + 1 + 1;
 }
 
 /// Agent Passport — on-chain sovereign identity for each AI agent.
@@ -830,43 +939,53 @@ pub struct RegisterPartner<'info> {
 }
 
 #[derive(Accounts)]
-pub struct B2bPay<'info> {
+#[instruction(
+    merchant_amount_lamports: u64,
+    payment_id: [u8; 32],
+    order_id: String,
+    creator_fee_enabled: bool
+)]
+pub struct B2bPayWithSplit<'info> {
     #[account(seeds = [b"config"], bump = config.bump)]
     pub config: Account<'info, ProtocolConfig>,
 
-    #[account(
-        mut,
-        seeds = [b"passport", agent.key().as_ref()],
-        bump = passport.bump,
-        constraint = passport.owner == agent.key() @ ErrorCode::Unauthorized
-    )]
-    pub passport: Account<'info, AgentPassport>,
-
-    #[account(
-        mut,
-        seeds = [b"partner", merchant_wallet.key().as_ref()],
-        bump = partner_config.bump,
-        constraint = partner_config.is_active @ ErrorCode::PartnerNotActive,
-        constraint = partner_config.partner_wallet == merchant_wallet.key() @ ErrorCode::Unauthorized
-    )]
-    pub partner_config: Account<'info, PartnerConfig>,
-
-    #[account(mut, seeds = [b"vault"], bump = vault.bump)]
+    #[account(seeds = [b"vault"], bump = vault.bump)]
     pub vault: Account<'info, Vault>,
 
     #[account(mut)]
     pub agent: Signer<'info>,
 
-    /// CHECK: Squads multisig treasury
+    #[account(
+        init,
+        payer = agent,
+        space = B2bPaymentReceipt::LEN,
+        seeds = [b"b2b-payment", agent.key().as_ref(), payment_id.as_ref()],
+        bump
+    )]
+    pub payment_receipt: Account<'info, B2bPaymentReceipt>,
+
+    /// CHECK: constrained to the canonical treasury stored in the Vault PDA.
     #[account(mut, constraint = treasury.key() == vault.treasury @ ErrorCode::Unauthorized)]
     pub treasury: AccountInfo<'info>,
 
-    /// CHECK: IP creator — verified against passport
-    #[account(mut, constraint = ip_creator.key() == passport.ip_creator @ ErrorCode::InvalidIpCreator)]
+    /// CHECK: when disabled this must be treasury; when enabled it must be a
+    /// distinct system-owned wallet. The handler repeats the party checks.
+    #[account(
+        mut,
+        constraint = (
+            (!creator_fee_enabled && ip_creator.key() == treasury.key()) ||
+            (creator_fee_enabled && *ip_creator.owner == system_program::ID)
+        ) @ ErrorCode::InvalidCreator
+    )]
     pub ip_creator: AccountInfo<'info>,
 
-    /// CHECK: merchant receiving wallet
-    #[account(mut)]
+    /// CHECK: native-SOL merchant wallet; program-owned destinations are not
+    /// accepted for this v0.6 route.
+    #[account(
+        mut,
+        constraint = *merchant_wallet.owner == system_program::ID @ ErrorCode::InvalidMerchant,
+        constraint = !merchant_wallet.executable @ ErrorCode::InvalidMerchant
+    )]
     pub merchant_wallet: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
@@ -1055,4 +1174,101 @@ pub enum ErrorCode {
     PartnerNotActive,
     #[msg("IP creator wallet does not match passport record")]
     InvalidIpCreator,
+    #[msg("B2B merchant amount must be positive and produce a protocol fee")]
+    PaymentAmountInvalid,
+    #[msg("B2B order ID must contain 1..64 bytes")]
+    OrderIdInvalid,
+    #[msg("B2B payment ID does not match the canonical v0.6 derivation")]
+    PaymentIdMismatch,
+    #[msg("B2B creator fee underflows for this merchant amount")]
+    CreatorFeeUnderflow,
+    #[msg("B2B merchant must be a distinct system-owned wallet")]
+    InvalidMerchant,
+    #[msg("B2B creator account does not match creator_fee_enabled")]
+    InvalidCreator,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parties() -> (Pubkey, Pubkey, Pubkey, Pubkey) {
+        (
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        )
+    }
+
+    #[test]
+    fn fee_on_top_without_creator_keeps_merchant_whole() {
+        let split = compute_b2b_split(1_000_000, false).unwrap();
+        assert_eq!(split.merchant, 1_000_000);
+        assert_eq!(split.treasury_fee, 10_000);
+        assert_eq!(split.creator_fee, 0);
+        assert_eq!(split.total, 1_010_000);
+    }
+
+    #[test]
+    fn fee_on_top_with_creator_is_optional_and_exact() {
+        let split = compute_b2b_split(1_000_000, true).unwrap();
+        assert_eq!(split.merchant, 1_000_000);
+        assert_eq!(split.treasury_fee, 10_000);
+        assert_eq!(split.creator_fee, 100);
+        assert_eq!(split.total, 1_010_100);
+    }
+
+    #[test]
+    fn micro_amounts_and_overflow_fail_closed() {
+        assert!(compute_b2b_split(0, false).is_err());
+        assert!(compute_b2b_split(99, false).is_err());
+        assert!(compute_b2b_split(9_999, true).is_err());
+        assert!(compute_b2b_split(u64::MAX, false).is_err());
+    }
+
+    #[test]
+    fn payment_id_binds_payer_merchant_amount_creator_and_order() {
+        let (payer, merchant, treasury, creator) = parties();
+        let base = derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-1");
+        assert_eq!(base, derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-1"));
+        assert_ne!(base, derive_payment_id(&Pubkey::new_unique(), &merchant, 1_000_000, &treasury, false, "order-1"));
+        assert_ne!(base, derive_payment_id(&payer, &Pubkey::new_unique(), 1_000_000, &treasury, false, "order-1"));
+        assert_ne!(base, derive_payment_id(&payer, &merchant, 1_000_001, &treasury, false, "order-1"));
+        assert_ne!(base, derive_payment_id(&payer, &merchant, 1_000_000, &creator, true, "order-1"));
+        assert_ne!(base, derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-2"));
+    }
+
+    #[test]
+    fn receipt_pda_is_deterministic_and_payer_scoped() {
+        let (payer, merchant, treasury, _) = parties();
+        let payment_id = derive_payment_id(&payer, &merchant, 1_000_000, &treasury, false, "order-1");
+        let first = Pubkey::find_program_address(
+            &[b"b2b-payment", payer.as_ref(), payment_id.as_ref()],
+            &crate::ID,
+        );
+        let replay = Pubkey::find_program_address(
+            &[b"b2b-payment", payer.as_ref(), payment_id.as_ref()],
+            &crate::ID,
+        );
+        let other_payer = Pubkey::new_unique();
+        let other = Pubkey::find_program_address(
+            &[b"b2b-payment", other_payer.as_ref(), payment_id.as_ref()],
+            &crate::ID,
+        );
+        assert_eq!(first, replay);
+        assert_ne!(first, other);
+    }
+
+    #[test]
+    fn invalid_party_layouts_fail_closed() {
+        let (payer, merchant, treasury, creator) = parties();
+        assert!(validate_b2b_parties(&payer, &merchant, &treasury, &treasury, false).is_ok());
+        assert!(validate_b2b_parties(&payer, &merchant, &treasury, &creator, true).is_ok());
+        assert!(validate_b2b_parties(&payer, &payer, &treasury, &treasury, false).is_err());
+        assert!(validate_b2b_parties(&payer, &treasury, &treasury, &treasury, false).is_err());
+        assert!(validate_b2b_parties(&payer, &merchant, &treasury, &creator, false).is_err());
+        assert!(validate_b2b_parties(&payer, &merchant, &treasury, &treasury, true).is_err());
+        assert!(validate_b2b_parties(&payer, &merchant, &treasury, &merchant, true).is_err());
+    }
 }

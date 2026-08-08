@@ -2,26 +2,27 @@
   "address": "5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2",
   "metadata": {
     "name": "aifinpay_contract",
-    "version": "0.5.3",
+    "version": "0.6.0",
     "spec": "0.1.0",
-    "description": "AIFinPay Sovereign Residency & Compute Allocation — mSECCO / CoinSecurities Network v5.3"
+    "description": "AiFinPay Solana program v0.6 — replay-safe native fee-on-top settlement"
   },
   "instructions": [
     {
-      "name": "b2b_pay",
+      "name": "b2b_pay_with_split",
       "docs": [
-        "Execute a B2B SOL payment with atomic revenue split.",
-        "Split: 98.99% merchant / 1.00% AiFinPay treasury / 0.01% IP creator."
+        "Canonical v0.6 native-SOL fee-on-top settlement.",
+        "Merchant receives merchant_amount_lamports in full; protocol and optional creator fees are added on top.",
+        "payment_receipt is a single-use PDA scoped to payer + deterministic payment_id."
       ],
       "discriminator": [
-        99,
-        48,
-        31,
-        118,
-        22,
-        9,
-        89,
-        124
+        181,
+        207,
+        235,
+        216,
+        235,
+        130,
+        241,
+        34
       ],
       "accounts": [
         {
@@ -43,57 +44,7 @@
           }
         },
         {
-          "name": "passport",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  97,
-                  115,
-                  115,
-                  112,
-                  111,
-                  114,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "agent"
-              }
-            ]
-          }
-        },
-        {
-          "name": "partner_config",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  97,
-                  114,
-                  116,
-                  110,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "merchant_wallet"
-              }
-            ]
-          }
-        },
-        {
           "name": "vault",
-          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -115,6 +66,38 @@
           "signer": true
         },
         {
+          "name": "payment_receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  50,
+                  98,
+                  45,
+                  112,
+                  97,
+                  121,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              },
+              {
+                "kind": "arg",
+                "path": "payment_id"
+              }
+            ]
+          }
+        },
+        {
           "name": "treasury",
           "writable": true
         },
@@ -133,12 +116,25 @@
       ],
       "args": [
         {
-          "name": "amount_lamports",
+          "name": "merchant_amount_lamports",
           "type": "u64"
+        },
+        {
+          "name": "payment_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
         },
         {
           "name": "order_id",
           "type": "string"
+        },
+        {
+          "name": "creator_fee_enabled",
+          "type": "bool"
         }
       ]
     },
@@ -970,6 +966,19 @@
   ],
   "accounts": [
     {
+      "name": "B2bPaymentReceipt",
+      "discriminator": [
+        112,
+        86,
+        225,
+        214,
+        123,
+        76,
+        116,
+        170
+      ]
+    },
+    {
       "name": "AgentPassport",
       "discriminator": [
         206,
@@ -1049,6 +1058,19 @@
     }
   ],
   "events": [
+    {
+      "name": "B2bPaymentEvent",
+      "discriminator": [
+        84,
+        29,
+        210,
+        79,
+        10,
+        147,
+        239,
+        220
+      ]
+    },
     {
       "name": "PitchClimaxEvent",
       "discriminator": [
@@ -1163,9 +1185,161 @@
       "code": 6019,
       "name": "InvalidIpCreator",
       "msg": "IP creator wallet does not match passport record"
+    },
+    {
+      "code": 6020,
+      "name": "PaymentAmountInvalid",
+      "msg": "B2B merchant amount must be positive and produce a protocol fee"
+    },
+    {
+      "code": 6021,
+      "name": "OrderIdInvalid",
+      "msg": "B2B order ID must contain 1..64 bytes"
+    },
+    {
+      "code": 6022,
+      "name": "PaymentIdMismatch",
+      "msg": "B2B payment ID does not match the canonical v0.6 derivation"
+    },
+    {
+      "code": 6023,
+      "name": "CreatorFeeUnderflow",
+      "msg": "B2B creator fee underflows for this merchant amount"
+    },
+    {
+      "code": 6024,
+      "name": "InvalidMerchant",
+      "msg": "B2B merchant must be a distinct system-owned wallet"
+    },
+    {
+      "code": 6025,
+      "name": "InvalidCreator",
+      "msg": "B2B creator account does not match creator_fee_enabled"
     }
   ],
   "types": [
+    {
+      "name": "B2bPaymentReceipt",
+      "docs": [
+        "Single-use native-SOL payment receipt.",
+        "Seeds: [\"b2b-payment\", payer, payment_id]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payer",
+            "type": "pubkey"
+          },
+          {
+            "name": "merchant",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "payment_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "merchant_amount",
+            "type": "u64"
+          },
+          {
+            "name": "treasury_fee",
+            "type": "u64"
+          },
+          {
+            "name": "creator_fee",
+            "type": "u64"
+          },
+          {
+            "name": "total_amount",
+            "type": "u64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "creator_fee_enabled",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "B2bPaymentEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payment_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "payer",
+            "type": "pubkey"
+          },
+          {
+            "name": "merchant",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "merchant_amount",
+            "type": "u64"
+          },
+          {
+            "name": "treasury_fee",
+            "type": "u64"
+          },
+          {
+            "name": "creator_fee",
+            "type": "u64"
+          },
+          {
+            "name": "total_amount",
+            "type": "u64"
+          },
+          {
+            "name": "creator_fee_enabled",
+            "type": "bool"
+          },
+          {
+            "name": "order_id",
+            "type": "string"
+          }
+        ]
+      }
+    },
     {
       "name": "AgentPassport",
       "docs": [

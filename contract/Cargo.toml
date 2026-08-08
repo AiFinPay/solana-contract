@@ -1,7 +1,7 @@
 [package]
 name = "aifinpay-contract"
-version = "0.5.3"
-description = "AIFinPay Sovereign Residency & Compute Allocation — mSECCO / CoinSecurities Network v5.3"
+version = "0.6.0"
+description = "AiFinPay Solana program v0.6 — replay-safe native fee-on-top settlement"
 edition = "2021"
 
 [lib]

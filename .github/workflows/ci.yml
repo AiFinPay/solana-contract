@@ -1,0 +1,40 @@
+name: Solana Contract CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - security/fee-on-top-v0-6-remediation
+
+permissions:
+  contents: read
+
+jobs:
+  rust-and-idl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.85.1
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contract
+      - name: Rust formatting
+        working-directory: contract
+        run: cargo fmt --check
+      - name: Rust tests
+        working-directory: contract
+        run: cargo test --lib
+      - name: Rust compile gate
+        working-directory: contract
+        run: cargo check --features no-entrypoint
+      - name: IDL/source drift gate
+        run: node scripts/sync-idl.mjs
+      - name: Retired fee-inclusive instruction gate
+        run: |
+          ! grep -R --line-number --fixed-string 'pub fn b2b_pay(' contract/src
+          ! jq -e '.instructions[] | select(.name == "b2b_pay")' idl/aifinpay_contract.json
