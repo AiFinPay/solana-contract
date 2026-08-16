@@ -1,0 +1,31 @@
+name: settlement-v1-ci
+
+on:
+  pull_request:
+    paths:
+      - "settlement-v1/**"
+      - ".github/workflows/settlement-v1-ci.yml"
+  push:
+    branches:
+      - "release/settlement-v1-production-rc"
+    paths:
+      - "settlement-v1/**"
+      - ".github/workflows/settlement-v1-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rust-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: settlement-v1
+      - name: Cargo test
+        run: cargo test --manifest-path settlement-v1/Cargo.toml --locked=false
+      - name: Cargo check
+        run: cargo check --manifest-path settlement-v1/Cargo.toml --locked=false
