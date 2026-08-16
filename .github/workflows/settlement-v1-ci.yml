@@ -15,6 +15,9 @@ on:
 permissions:
   contents: read
 
+env:
+  CARGO_TERM_COLOR: never
+
 jobs:
   rust-test:
     runs-on: ubuntu-latest
@@ -37,8 +40,8 @@ jobs:
           status=$?
           cat cargo-test.log
           if [ "$status" -ne 0 ]; then
-            excerpt=$(grep -E "(^error(\[|:)|error: could not compile| --> settlement-v1/)" cargo-test.log | tail -n 40 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
-            if [ -z "$excerpt" ]; then excerpt=$(tail -n 30 cargo-test.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g'); fi
+            excerpt=$(grep -E -A4 -B2 "(^error(\[|:)|error: could not compile|--> settlement-v1/|--> src/)" cargo-test.log | tail -n 100 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+            if [ -z "$excerpt" ]; then excerpt=$(tail -n 60 cargo-test.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g'); fi
             echo "::error title=Solana settlement-v1 cargo test failed::$excerpt"
             exit "$status"
           fi
@@ -50,8 +53,8 @@ jobs:
           status=$?
           cat cargo-check.log
           if [ "$status" -ne 0 ]; then
-            excerpt=$(grep -E "(^error(\[|:)|error: could not compile| --> settlement-v1/)" cargo-check.log | tail -n 40 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
-            if [ -z "$excerpt" ]; then excerpt=$(tail -n 30 cargo-check.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g'); fi
+            excerpt=$(grep -E -A4 -B2 "(^error(\[|:)|error: could not compile|--> settlement-v1/|--> src/)" cargo-check.log | tail -n 100 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+            if [ -z "$excerpt" ]; then excerpt=$(tail -n 60 cargo-check.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g'); fi
             echo "::error title=Solana settlement-v1 cargo check failed::$excerpt"
             exit "$status"
           fi
