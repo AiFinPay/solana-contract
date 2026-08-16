@@ -1,0 +1,41 @@
+name: patch-msg-import-once
+
+on:
+  push:
+    branches:
+      - release/settlement-v1-production-rc
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/settlement-v1-production-rc
+      - name: Apply exact one-line source patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('settlement-v1/src/lib.rs')
+          before = p.read_text()
+          needle = '    entrypoint::ProgramResult,\n    program::{invoke, invoke_signed},'
+          replacement = '    entrypoint::ProgramResult,\n    msg,\n    program::{invoke, invoke_signed},'
+          if before.count(needle) != 1:
+              raise SystemExit(f'expected exactly one import insertion point, found {before.count(needle)}')
+          after = before.replace(needle, replacement, 1)
+          if after.count('\n    msg,\n') != 1:
+              raise SystemExit('msg import postcondition failed')
+          p.write_text(after)
+          PY
+      - name: Commit exact patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add settlement-v1/src/lib.rs
+          git diff --cached --exit-code && exit 0
+          git commit -m "fix(solana): import msg macro for settlement logs"
+          git push origin HEAD:release/settlement-v1-production-rc
