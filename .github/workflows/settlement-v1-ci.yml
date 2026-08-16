@@ -26,6 +26,27 @@ jobs:
         with:
           workspaces: settlement-v1
       - name: Cargo test
-        run: cargo test --manifest-path settlement-v1/Cargo.toml --locked=false
+        shell: bash
+        run: |
+          set +e
+          cargo test --manifest-path settlement-v1/Cargo.toml --locked=false >cargo-test.log 2>&1
+          status=$?
+          cat cargo-test.log
+          if [ "$status" -ne 0 ]; then
+            excerpt=$(grep -E "(^error(\[|:)|error: could not compile| --> settlement-v1/)" cargo-test.log | tail -n 25 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+            if [ -z "$excerpt" ]; then excerpt=$(tail -n 20 cargo-test.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g'); fi
+            echo "::error title=Solana settlement-v1 cargo test failed::$excerpt"
+            exit "$status"
+          fi
       - name: Cargo check
-        run: cargo check --manifest-path settlement-v1/Cargo.toml --locked=false
+        shell: bash
+        run: |
+          set +e
+          cargo check --manifest-path settlement-v1/Cargo.toml --locked=false >cargo-check.log 2>&1
+          status=$?
+          cat cargo-check.log
+          if [ "$status" -ne 0 ]; then
+            excerpt=$(grep -E "(^error(\[|:)|error: could not compile| --> settlement-v1/)" cargo-check.log | tail -n 25 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+            echo "::error title=Solana settlement-v1 cargo check failed::$excerpt"
+            exit "$status"
+          fi
