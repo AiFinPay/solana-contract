@@ -6,6 +6,7 @@ use anchor_lang::solana_program::{
     clock::Clock,
     entrypoint,
     entrypoint::ProgramResult,
+    msg,
     program::{invoke, invoke_signed},
     program_error::ProgramError,
     program_pack::Pack,
