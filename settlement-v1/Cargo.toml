@@ -1,0 +1,23 @@
+[package]
+name = "aifinpay-settlement-v1"
+version = "1.0.0-rc.1"
+description = "AiFinPay canonical Solana settlement program — AIFP-1 100/0 and AIFP-2 0/0 gross-inclusive routes"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "aifinpay_settlement_v1"
+
+[features]
+default = []
+no-entrypoint = []
+
+[dependencies]
+# Keep the Solana/Token dependency family aligned with the existing audited
+# Anchor 0.32.1 project instead of introducing a second SDK version into this repo.
+anchor-lang = "0.32.1"
+anchor-spl = { version = "0.32.1", features = ["token"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
