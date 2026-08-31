@@ -12,7 +12,10 @@ pub struct Unpause<'info> {
 
 pub fn handle_unpause(ctx: Context<Unpause>) -> Result<()> {
     let config = &mut ctx.accounts.config;
-    require!(config.admin.eq(&ctx.accounts.admin.key()), ErrorCode::Unauthorized);
+    require!(
+        config.admin.eq(&ctx.accounts.admin.key()),
+        ErrorCode::Unauthorized
+    );
     config.is_paused = false;
     msg!("Splitter unpaused by {}", ctx.accounts.admin.key());
     Ok(())

@@ -23,8 +23,14 @@ pub fn handle_set_whitelisted_tokens(
     allowed: Vec<bool>,
 ) -> Result<()> {
     let config = &ctx.accounts.config;
-    require!(config.admin.eq(&ctx.accounts.admin.key()), ErrorCode::Unauthorized);
-    require!(tokens.len() == allowed.len(), ErrorCode::ArrayLengthMismatch);
+    require!(
+        config.admin.eq(&ctx.accounts.admin.key()),
+        ErrorCode::Unauthorized
+    );
+    require!(
+        tokens.len() == allowed.len(),
+        ErrorCode::ArrayLengthMismatch
+    );
 
     let token_list = &mut ctx.accounts.token_list;
     for (i, mint) in tokens.iter().enumerate() {

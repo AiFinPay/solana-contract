@@ -1,10 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{
-    error::ErrorCode,
-    state::ProfilesIndex,
-    utils::split_gross,
-};
+use crate::{error::ErrorCode, state::ProfilesIndex, utils::split_gross};
 
 #[derive(Accounts)]
 pub struct QuoteTotal<'info> {

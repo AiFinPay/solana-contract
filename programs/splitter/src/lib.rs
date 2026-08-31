@@ -107,7 +107,12 @@ pub mod splitter {
         route_id: [u8; 32],
         ip_creator: Pubkey,
     ) -> Result<QuoteTotalResult> {
-        crate::instructions::quote_total::handle_quote_total(ctx, gross_amount, route_id, ip_creator)
+        crate::instructions::quote_total::handle_quote_total(
+            ctx,
+            gross_amount,
+            route_id,
+            ip_creator,
+        )
     }
 }
 

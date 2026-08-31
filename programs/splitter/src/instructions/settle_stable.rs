@@ -59,7 +59,10 @@ pub fn handle_settle_stable<'a>(
         !quote.token.eq(&Pubkey::default()),
         ErrorCode::UnsupportedToken
     );
-    require!(quote.token.eq(&ctx.accounts.mint.key()), ErrorCode::UnsupportedToken);
+    require!(
+        quote.token.eq(&ctx.accounts.mint.key()),
+        ErrorCode::UnsupportedToken
+    );
     require!(quote.nonce == nonce, ErrorCode::InvalidNonce);
 
     // Remaining accounts order: payer_ata, merchant_ata, treasury_ata, [ip_creator_ata]
@@ -74,18 +77,9 @@ pub fn handle_settle_stable<'a>(
         &mint,
         Some(&ctx.accounts.payer.key()),
     )?;
-    let _merchant_ata = deserialize_token_account(
-        &remaining[1],
-        token_program,
-        &mint,
-        Some(&quote.merchant),
-    )?;
-    let treasury_ata = deserialize_token_account(
-        &remaining[2],
-        token_program,
-        &mint,
-        None,
-    )?;
+    let _merchant_ata =
+        deserialize_token_account(&remaining[1], token_program, &mint, Some(&quote.merchant))?;
+    let treasury_ata = deserialize_token_account(&remaining[2], token_program, &mint, None)?;
 
     let profile = verify_quote_core(
         &quote,
@@ -140,7 +134,10 @@ pub fn handle_settle_stable<'a>(
     }
 
     if ip_amt > 0 {
-        require!(!quote.ip_creator.eq(&Pubkey::default()), ErrorCode::MissingIPCreator);
+        require!(
+            !quote.ip_creator.eq(&Pubkey::default()),
+            ErrorCode::MissingIPCreator
+        );
         require!(remaining.len() >= 4, ErrorCode::MissingIPCreator);
         let _ip_ata = deserialize_token_account(
             &remaining[3],
@@ -173,8 +170,8 @@ fn deserialize_token_account(
 ) -> Result<TokenAccount> {
     require!(*info.owner == token_program, ErrorCode::UnsupportedToken);
     let data = info.try_borrow_data()?;
-    let account = TokenAccount::try_deserialize(&mut &data[..])
-        .map_err(|_| ErrorCode::UnsupportedToken)?;
+    let account =
+        TokenAccount::try_deserialize(&mut &data[..]).map_err(|_| ErrorCode::UnsupportedToken)?;
     require!(account.mint == *expected_mint, ErrorCode::UnsupportedToken);
     if let Some(owner) = expected_owner {
         require!(account.owner == *owner, ErrorCode::InvalidPayer);

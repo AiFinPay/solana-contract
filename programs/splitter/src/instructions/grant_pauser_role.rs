@@ -12,11 +12,16 @@ pub struct GrantPauserRole<'info> {
 
 pub fn handle_grant_pauser_role(ctx: Context<GrantPauserRole>, pauser: Pubkey) -> Result<()> {
     let config = &ctx.accounts.config;
-    require!(config.admin.eq(&ctx.accounts.admin.key()), ErrorCode::Unauthorized);
+    require!(
+        config.admin.eq(&ctx.accounts.admin.key()),
+        ErrorCode::Unauthorized
+    );
     require!(!pauser.eq(&Pubkey::default()), ErrorCode::ZeroPauser);
     require!(!pauser.eq(&config.admin), ErrorCode::AdminEqualsSigner);
     require!(
-        !pauser.eq(&Pubkey::new_from_array(config.signer[..32].try_into().unwrap())),
+        !pauser.eq(&Pubkey::new_from_array(
+            config.signer[..32].try_into().unwrap()
+        )),
         ErrorCode::PauserEqualsSigner
     );
 

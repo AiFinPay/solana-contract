@@ -59,10 +59,18 @@ pub fn handle_initialize(ctx: Context<Initialize>, params: InitializeParams) -> 
     require!(!params.admin.eq(&Pubkey::default()), ErrorCode::ZeroAdmin);
     require!(params.signer != [0u8; 64], ErrorCode::ZeroSigner);
     require!(!params.pauser.eq(&Pubkey::default()), ErrorCode::ZeroPauser);
-    require!(!params.treasury.eq(&Pubkey::default()), ErrorCode::ZeroTreasury);
-    require!(!params.admin.eq(&params.pauser), ErrorCode::AdminEqualsSigner);
     require!(
-        !params.pauser.eq(&Pubkey::new_from_array(params.signer[..32].try_into().unwrap())),
+        !params.treasury.eq(&Pubkey::default()),
+        ErrorCode::ZeroTreasury
+    );
+    require!(
+        !params.admin.eq(&params.pauser),
+        ErrorCode::AdminEqualsSigner
+    );
+    require!(
+        !params.pauser.eq(&Pubkey::new_from_array(
+            params.signer[..32].try_into().unwrap()
+        )),
         ErrorCode::PauserEqualsSigner
     );
 
@@ -86,8 +94,14 @@ pub fn handle_initialize(ctx: Context<Initialize>, params: InitializeParams) -> 
     for i in 0..route_count {
         let treasury_bps = params.treasury_bps[i];
         let ip_creator_bps = params.ip_creator_bps[i];
-        require!(treasury_bps <= MAX_TREASURY_BPS, ErrorCode::TreasuryFeeTooHigh);
-        require!(ip_creator_bps <= MAX_IP_CREATOR_BPS, ErrorCode::IPCreatorFeeTooHigh);
+        require!(
+            treasury_bps <= MAX_TREASURY_BPS,
+            ErrorCode::TreasuryFeeTooHigh
+        );
+        require!(
+            ip_creator_bps <= MAX_IP_CREATOR_BPS,
+            ErrorCode::IPCreatorFeeTooHigh
+        );
 
         entries.push(RouteProfileEntry {
             route_id: params.route_ids[i],

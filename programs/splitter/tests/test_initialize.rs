@@ -29,16 +29,16 @@ fn test_initialize_and_quote_total() {
     let config = Pubkey::find_program_address(&[splitter::constants::CONFIG_SEED], &program_id).0;
     let token_list =
         Pubkey::find_program_address(&[splitter::constants::TOKEN_LIST_SEED], &program_id).0;
-    let profiles = Pubkey::find_program_address(
-        &[splitter::constants::PROFILES_INDEX_SEED],
-        &program_id,
-    )
-    .0;
+    let profiles =
+        Pubkey::find_program_address(&[splitter::constants::PROFILES_INDEX_SEED], &program_id).0;
 
     let mut svm = LiteSVM::new();
     let so_path = build_program_so_path();
     let bytes = std::fs::read(&so_path).unwrap_or_else(|_| {
-        panic!("Could not read splitter.so at {}. Run `anchor build` first.", so_path)
+        panic!(
+            "Could not read splitter.so at {}. Run `anchor build` first.",
+            so_path
+        )
     });
     svm.add_program(program_id, &bytes).unwrap();
     svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();

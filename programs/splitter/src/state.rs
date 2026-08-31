@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{MAX_TOKENS, MAX_ROUTES};
+use crate::constants::{MAX_ROUTES, MAX_TOKENS};
 
 /// Global configuration and RBAC registry.
 #[account]

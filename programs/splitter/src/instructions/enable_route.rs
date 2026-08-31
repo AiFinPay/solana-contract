@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 
-use crate::{error::ErrorCode, state::{Config, ProfilesIndex}};
+use crate::{
+    error::ErrorCode,
+    state::{Config, ProfilesIndex},
+};
 
 #[derive(Accounts)]
 pub struct EnableRoute<'info> {
@@ -15,7 +18,10 @@ pub struct EnableRoute<'info> {
 
 pub fn handle_enable_route(ctx: Context<EnableRoute>, route_id: [u8; 32]) -> Result<()> {
     let config = &ctx.accounts.config;
-    require!(config.admin.eq(&ctx.accounts.admin.key()), ErrorCode::Unauthorized);
+    require!(
+        config.admin.eq(&ctx.accounts.admin.key()),
+        ErrorCode::Unauthorized
+    );
 
     let profiles = &mut ctx.accounts.profiles;
     let entry = profiles

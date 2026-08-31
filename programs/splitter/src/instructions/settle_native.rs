@@ -58,7 +58,10 @@ pub fn handle_settle_native(
     signature: [u8; 65],
 ) -> Result<()> {
     require!(!ctx.accounts.config.is_paused, ErrorCode::ProtocolPaused);
-    require!(quote.token.eq(&Pubkey::default()), ErrorCode::InvalidTokenForNative);
+    require!(
+        quote.token.eq(&Pubkey::default()),
+        ErrorCode::InvalidTokenForNative
+    );
     require!(quote.nonce == nonce, ErrorCode::InvalidNonce);
 
     let profile = verify_quote_core(
@@ -112,7 +115,10 @@ pub fn handle_settle_native(
     }
 
     if ip_amt > 0 {
-        require!(!quote.ip_creator.eq(&Pubkey::default()), ErrorCode::MissingIPCreator);
+        require!(
+            !quote.ip_creator.eq(&Pubkey::default()),
+            ErrorCode::MissingIPCreator
+        );
         let ip_info = ctx.accounts.ip_creator.to_account_info();
         **ip_info.try_borrow_mut_lamports()? = ip_info
             .lamports()

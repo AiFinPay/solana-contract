@@ -40,7 +40,13 @@ pub fn digest(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
 pub fn domain_separator(program_id: &Pubkey) -> [u8; 32] {
     let name_hash = keccak256_hashv(&[EIP712_NAME]).to_bytes();
     let version_hash = keccak256_hashv(&[EIP712_VERSION]).to_bytes();
-    keccak256_hashv(&[&DOMAIN_TYPEHASH, &name_hash, &version_hash, program_id.as_ref()]).to_bytes()
+    keccak256_hashv(&[
+        &DOMAIN_TYPEHASH,
+        &name_hash,
+        &version_hash,
+        program_id.as_ref(),
+    ])
+    .to_bytes()
 }
 
 pub fn quote_hash(quote: &Quote) -> [u8; 32] {
@@ -86,10 +92,16 @@ pub fn verify_quote_core(
     let recovered = recover_signer(&digest, signature)?;
     require!(recovered == config.signer, ErrorCode::InvalidSigner);
 
-    require!(clock.unix_timestamp <= quote.valid_until, ErrorCode::SignatureExpired);
+    require!(
+        clock.unix_timestamp <= quote.valid_until,
+        ErrorCode::SignatureExpired
+    );
     require!(!quote.payer.eq(&Pubkey::default()), ErrorCode::InvalidPayer);
     require!(quote.payer.eq(&payer.key()), ErrorCode::InvalidPayer);
-    require!(!quote.merchant.eq(&Pubkey::default()), ErrorCode::ZeroMerchant);
+    require!(
+        !quote.merchant.eq(&Pubkey::default()),
+        ErrorCode::ZeroMerchant
+    );
 
     let profile = find_route_profile(&profiles.entries, &quote.route_id)?;
     require!(profile.enabled, ErrorCode::RouteDisabled);
@@ -110,7 +122,10 @@ pub fn verify_quote_core(
     Ok(profile.clone())
 }
 
-fn find_route_profile<'a>(entries: &'a [RouteProfileEntry], route_id: &[u8; 32]) -> Result<&'a RouteProfileEntry> {
+fn find_route_profile<'a>(
+    entries: &'a [RouteProfileEntry],
+    route_id: &[u8; 32],
+) -> Result<&'a RouteProfileEntry> {
     entries
         .iter()
         .find(|e| e.route_id == *route_id)
@@ -138,7 +153,10 @@ pub fn split_gross(
     };
 
     let ip_amt = if profile.ip_creator_bps > 0 {
-        require!(!ip_creator.eq(&Pubkey::default()), ErrorCode::MissingIPCreator);
+        require!(
+            !ip_creator.eq(&Pubkey::default()),
+            ErrorCode::MissingIPCreator
+        );
         let fee = (gross_amount as u128)
             .checked_mul(profile.ip_creator_bps as u128)
             .ok_or(ErrorCode::PaymentTooSmallForRoyalty)?
@@ -166,19 +184,18 @@ pub fn emit_payment(
     treasury_amt: u64,
     ip_amt: u64,
 ) -> Result<()> {
-    let payment_id = keccak256_hashv(
-        &[
-            quote.payer.as_ref(),
-            quote.merchant.as_ref(),
-            quote.token.as_ref(),
-            &quote.gross_amount.to_le_bytes(),
-            quote.ip_creator.as_ref(),
-            &quote.valid_until.to_le_bytes(),
-            &quote.order_id_hash,
-            &quote.nonce.to_le_bytes(),
-            &quote.route_id,
-        ])
-        .to_bytes();
+    let payment_id = keccak256_hashv(&[
+        quote.payer.as_ref(),
+        quote.merchant.as_ref(),
+        quote.token.as_ref(),
+        &quote.gross_amount.to_le_bytes(),
+        quote.ip_creator.as_ref(),
+        &quote.valid_until.to_le_bytes(),
+        &quote.order_id_hash,
+        &quote.nonce.to_le_bytes(),
+        &quote.route_id,
+    ])
+    .to_bytes();
 
     emit!(Payment {
         payment_id,

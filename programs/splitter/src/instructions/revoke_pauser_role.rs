@@ -12,7 +12,10 @@ pub struct RevokePauserRole<'info> {
 
 pub fn handle_revoke_pauser_role(ctx: Context<RevokePauserRole>) -> Result<()> {
     let config = &ctx.accounts.config;
-    require!(config.admin.eq(&ctx.accounts.admin.key()), ErrorCode::Unauthorized);
+    require!(
+        config.admin.eq(&ctx.accounts.admin.key()),
+        ErrorCode::Unauthorized
+    );
     ctx.accounts.config.pauser = Pubkey::default();
     msg!("Pauser role revoked");
     Ok(())

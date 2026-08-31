@@ -25,11 +25,23 @@ pub fn handle_configure_route(
     route_treasury: Pubkey,
 ) -> Result<()> {
     let config = &ctx.accounts.config;
-    require!(config.admin.eq(&ctx.accounts.admin.key()), ErrorCode::Unauthorized);
-    require!(treasury_bps <= MAX_TREASURY_BPS, ErrorCode::TreasuryFeeTooHigh);
-    require!(ip_creator_bps <= MAX_IP_CREATOR_BPS, ErrorCode::IPCreatorFeeTooHigh);
+    require!(
+        config.admin.eq(&ctx.accounts.admin.key()),
+        ErrorCode::Unauthorized
+    );
+    require!(
+        treasury_bps <= MAX_TREASURY_BPS,
+        ErrorCode::TreasuryFeeTooHigh
+    );
+    require!(
+        ip_creator_bps <= MAX_IP_CREATOR_BPS,
+        ErrorCode::IPCreatorFeeTooHigh
+    );
     if !route_treasury.eq(&Pubkey::default()) {
-        require!(!route_treasury.eq(&Pubkey::default()), ErrorCode::RouteTreasuryZero);
+        require!(
+            !route_treasury.eq(&Pubkey::default()),
+            ErrorCode::RouteTreasuryZero
+        );
     }
 
     let clock = Clock::get()?;
