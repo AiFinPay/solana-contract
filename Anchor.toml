@@ -8,6 +8,7 @@ skip-lint = false
 
 [programs.localnet]
 splitter = "G6neYBZe8AzMvNPcewBhmzLao4CtZqc2uPVzPQBbAdrT"
+splitter_light = "7vGTUXSmooih99MuzQELyaeFeZmuo4QcstS7T9Jv7yyR"
 
 [provider]
 cluster = "localnet"
