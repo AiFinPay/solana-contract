@@ -60,3 +60,45 @@ jobs:
             echo "::error title=Solana settlement-v1 locked cargo check failed::$excerpt"
             exit "$status"
           fi
+
+  sbf-build-and-functional:
+    # Builds the real .so and runs the functional suite in the SBF VM. The
+    # dust-hardening (H-1) tests only mean anything against the real runtime,
+    # so they need the artifact — not the host-native processor.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: settlement-v1
+      - name: Install Solana (Agave) CLI
+        shell: bash
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Build SBF artifact + record evidence
+        shell: bash
+        working-directory: settlement-v1
+        run: |
+          cargo-build-sbf --version
+          cargo-build-sbf
+          SO=target/deploy/aifinpay_settlement_v1.so
+          test -s "$SO"
+          echo "artifact: $(wc -c < "$SO") bytes  sha256 $(sha256sum "$SO" | awk '{print $1}')"
+      - name: Functional tests in the SBF VM
+        shell: bash
+        working-directory: settlement-v1
+        env:
+          SBF_OUT_DIR: ${{ github.workspace }}/settlement-v1/target/deploy
+        run: |
+          set +e
+          cargo test --test functional --locked >functional.log 2>&1
+          status=$?
+          tail -n 60 functional.log
+          if [ "$status" -ne 0 ]; then
+            excerpt=$(grep -E -A2 -B1 "(panicked|assertion|FAILED|error\[)" functional.log | tail -n 80 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+            echo "::error title=settlement-v1 functional (SBF VM) failed::$excerpt"
+            exit "$status"
+          fi

@@ -4,3 +4,4 @@
 keypairs/
 private_keys.txt
 agents_config.json
+settlement-v1/target/

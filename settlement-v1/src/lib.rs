@@ -216,21 +216,49 @@ fn create_pda_account<'a>(
     if *system.key != system_program::id() {
         return Err(err(ERR_INVALID_ACCOUNTS));
     }
-    if pda.lamports() > 0 || !pda.data_is_empty() {
+    // Initialization state is defined by DATA, never by lamports: only this
+    // program can PDA-sign an allocate, so data at this address is ours alone.
+    // Anyone can transfer lamports to the address first ("dusting") — that must
+    // not be able to block creation, or a 1-lamport transfer bricks the config
+    // PDA forever and griefs chosen receipt ids.
+    if !pda.data_is_empty() || pda.owner == program_id {
         return Err(err(ERR_ALREADY_INITIALIZED));
     }
-    let lamports = Rent::get()?.minimum_balance(space);
-    invoke_signed(
-        &system_instruction::create_account(
-            payer.key,
-            pda.key,
-            lamports,
-            space as u64,
-            program_id,
-        ),
-        &[payer.clone(), pda.clone(), system.clone()],
-        &[signer_seeds],
-    )
+    let rent = Rent::get()?.minimum_balance(space);
+    let existing = pda.lamports();
+    if existing == 0 {
+        invoke_signed(
+            &system_instruction::create_account(
+                payer.key,
+                pda.key,
+                rent,
+                space as u64,
+                program_id,
+            ),
+            &[payer.clone(), pda.clone(), system.clone()],
+            &[signer_seeds],
+        )
+    } else {
+        // Dusted: top up to rent-exemption if short, then allocate + assign
+        // under the PDA's own signature (the account stays system-owned until
+        // the assign, which is exactly what allocate/assign require).
+        if existing < rent {
+            invoke(
+                &system_instruction::transfer(payer.key, pda.key, rent - existing),
+                &[payer.clone(), pda.clone(), system.clone()],
+            )?;
+        }
+        invoke_signed(
+            &system_instruction::allocate(pda.key, space as u64),
+            &[pda.clone(), system.clone()],
+            &[signer_seeds],
+        )?;
+        invoke_signed(
+            &system_instruction::assign(pda.key, program_id),
+            &[pda.clone(), system.clone()],
+            &[signer_seeds],
+        )
+    }
 }
 
 fn split_gross(route: u8, gross: u64) -> Result<(u64, u64), ProgramError> {
@@ -281,7 +309,10 @@ fn create_receipt<'a>(
     if expected != *receipt.key {
         return Err(err(ERR_INVALID_PDA));
     }
-    if receipt.lamports() > 0 || !receipt.data_is_empty() {
+    // Replay = a receipt was WRITTEN here (data), or the account already
+    // belongs to this program. Lamports alone are not a receipt: anyone can
+    // dust the address, and that must not block a legitimate payment.
+    if !receipt.data_is_empty() || receipt.owner == program_id {
         return Err(err(ERR_REPLAY));
     }
     let bump_seed = [bump];
