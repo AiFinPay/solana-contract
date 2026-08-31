@@ -1,5 +1,8 @@
 {
 	"devDependencies": {
 		"@daochild/agents-config": "^1.2.1"
+	},
+	"dependencies": {
+		"@solana/kit": "^8.2.0"
 	}
 }
