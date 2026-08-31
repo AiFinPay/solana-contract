@@ -4,3 +4,5 @@
 keypairs/
 private_keys.txt
 agents_config.json
+.idea
+.vscode

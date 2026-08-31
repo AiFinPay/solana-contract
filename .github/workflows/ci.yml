@@ -1,17 +1,17 @@
-name: Solana Contract CI
+name: Solana Splitter CI
 
 on:
   pull_request:
   push:
     branches:
       - main
-      - security/fee-on-top-v0-6-remediation
+      - dev
 
 permissions:
   contents: read
 
 jobs:
-  rust-and-idl:
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,19 +22,16 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contract
+          workspaces: splitter
       - name: Rust formatting
-        working-directory: contract
+        working-directory: splitter
         run: cargo fmt --check
       - name: Rust tests
-        working-directory: contract
-        run: cargo test --locked --lib
-      - name: Rust compile gate
-        working-directory: contract
-        run: cargo check --locked --features no-entrypoint
-      - name: IDL/source drift gate
-        run: node scripts/sync-idl.mjs
-      - name: Retired fee-inclusive instruction gate
-        run: |
-          ! grep -R --line-number --fixed-string 'pub fn b2b_pay(' contract/src
-          ! jq -e '.instructions[] | select(.name == "b2b_pay")' idl/aifinpay_contract.json
+        working-directory: splitter
+        run: cargo test --locked
+      - name: Rust clippy
+        working-directory: splitter
+        run: cargo clippy --all-targets -- -D warnings
+      - name: SBF build gate
+        working-directory: splitter
+        run: cargo build-sbf
