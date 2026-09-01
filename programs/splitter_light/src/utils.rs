@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use solana_keccak_hasher::hashv as keccak256_hashv;
 
 use crate::{
     constants::{
@@ -88,23 +87,13 @@ pub fn digest(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
     quote_message_hash(program_id, quote)
 }
 
-/// Keccak256 hash of a Quote (kept for tests / backwards documentation only).
-/// Prefer [`quote_message_hash`] for new signatures.
-pub fn quote_hash(quote: &Quote) -> [u8; 32] {
-    let mut quote_bytes = Vec::with_capacity(256);
-    quote
-        .serialize(&mut quote_bytes)
-        .expect("Quote serialization failed");
-    keccak256_hashv(&[&quote_bytes]).to_bytes()
-}
-
 /// Recover the secp256k1 public key from a 65-byte Ethereum-style signature.
 pub fn recover_signer(digest: &[u8; 32], signature: &[u8; 65]) -> Result<[u8; 64]> {
     use solana_secp256k1_recover::secp256k1_recover;
 
     let v = signature[64];
     let recovery_id = v.checked_sub(27).ok_or(ErrorCode::InvalidSignature)?;
-    let pubkey = secp256k1_recover(digest, recovery_id, signature)
+    let pubkey = secp256k1_recover(digest, recovery_id, &signature[..64])
         .map_err(|_| ErrorCode::InvalidSignature)?;
     Ok(pubkey.to_bytes())
 }
@@ -196,7 +185,7 @@ pub fn emit_payment(
     treasury_amt: u64,
     ip_amt: u64,
 ) -> Result<()> {
-    let payment_id = keccak256_hashv(&[
+    let payment_id = solana_program::hash::hashv(&[
         quote.payer.as_ref(),
         quote.merchant.as_ref(),
         quote.token.as_ref(),

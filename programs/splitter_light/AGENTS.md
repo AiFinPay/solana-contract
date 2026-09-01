@@ -40,7 +40,7 @@ programs/splitter_light/
     │   ├── settle_stable.rs
     │   └── set_signer.rs
     ├── state.rs       # Config, PayerNonce, ConsumedNonce, Quote
-    ├── constants.rs   # EIP-712 fields, route IDs, USDC/USDT mints, treasury, initial signer
+    ├── constants.rs   # route IDs, USDC/USDT mints, treasury, initial signer
     ├── error.rs       # ErrorCode
     └── utils.rs       # digest, recover_signer, split_gross, set_signer_digest, events
 ```
@@ -69,11 +69,10 @@ programs/splitter_light/
 These MUST match the EVM v1.4 deployment. Any change is a coordinated
 upgrade:
 
-- `EIP712_NAME`, `EIP712_VERSION`
-- `DOMAIN_TYPEHASH`, `QUOTE_TYPEHASH`
 - `ROUTE_AGENT_X402`, `ROUTE_MERCHANT_AIFP1`
 - `MAX_TREASURY_BPS = 500`, `MAX_IP_CREATOR_BPS = 100`
-- The field order in `quote_hash()`
+- The field order in `Quote` Borsh serialization used by
+  `quote_message_hash()`
 
 ## Deployment-critical placeholders
 

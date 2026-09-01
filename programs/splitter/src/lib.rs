@@ -130,24 +130,6 @@ mod tests {
     }
 
     #[test]
-    fn quote_hash_is_deterministic() {
-        let q = Quote {
-            payer: Pubkey::new_unique(),
-            merchant: Pubkey::new_unique(),
-            token: Pubkey::new_unique(),
-            gross_amount: 1_000_000,
-            ip_creator: Pubkey::new_unique(),
-            valid_until: i64::MAX,
-            order_id_hash: [1u8; 32],
-            nonce: 0,
-            route_id: ROUTE_AGENT_X402,
-        };
-        let h1 = utils::quote_hash(&q);
-        let h2 = utils::quote_hash(&q);
-        assert_eq!(h1, h2);
-    }
-
-    #[test]
     fn quote_message_hash_is_deterministic_and_matches_off_chain_implementation() {
         let q = Quote {
             payer: Pubkey::new_unique(),
@@ -185,8 +167,7 @@ mod tests {
     #[test]
     fn secp256k1_signature_recovers_signer_public_key() {
         use k256::ecdsa::SigningKey;
-        use rand_core::OsRng;
-        use sha2::{Digest, Sha256};
+        use rand::rngs::OsRng;
 
         let signing_key = SigningKey::random(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
@@ -211,9 +192,7 @@ mod tests {
 
         // Sign the digest as a prehash using k256. `sign_digest_recoverable`
         // returns the raw 64-byte signature and the recovery id (0 or 1).
-        let (raw_sig, rec_id) = signing_key
-            .sign_digest_recoverable(Sha256::new_with_prefix(&digest))
-            .expect("recoverable sign");
+        let (raw_sig, rec_id) = signing_key.sign_prehash_recoverable(&digest).unwrap();
 
         let mut sig_65 = [0u8; 65];
         sig_65[..64].copy_from_slice(raw_sig.to_bytes().as_ref());
@@ -221,6 +200,49 @@ mod tests {
 
         let recovered = utils::recover_signer(&digest, &sig_65).unwrap();
         assert_eq!(recovered, signer_pubkey);
+    }
+
+    #[test]
+    fn secp256k1_signature_rejects_tampered_quote() {
+        use k256::ecdsa::SigningKey;
+        use rand::rngs::OsRng;
+
+        let signing_key = SigningKey::random(&mut OsRng);
+        let verifying_key = signing_key.verifying_key();
+        let signer_pubkey: [u8; 64] = verifying_key.to_encoded_point(false).as_bytes()[1..]
+            .try_into()
+            .unwrap();
+
+        let q = Quote {
+            payer: Pubkey::new_unique(),
+            merchant: Pubkey::new_unique(),
+            token: Pubkey::default(),
+            gross_amount: 1_000_000,
+            ip_creator: Pubkey::default(),
+            valid_until: i64::MAX,
+            order_id_hash: [1u8; 32],
+            nonce: 0,
+            route_id: ROUTE_AGENT_X402,
+        };
+
+        let program_id = crate::id();
+        let digest = utils::quote_message_hash(&program_id, &q);
+
+        let (raw_sig, rec_id) = signing_key.sign_prehash_recoverable(&digest).unwrap();
+
+        let mut sig_65 = [0u8; 65];
+        sig_65[..64].copy_from_slice(raw_sig.to_bytes().as_ref());
+        sig_65[64] = 27 + rec_id.to_byte();
+
+        let recovered = utils::recover_signer(&digest, &sig_65).unwrap();
+        assert_eq!(recovered, signer_pubkey);
+
+        // Tamper with the quote and recompute digest; the original signature must NOT recover.
+        let mut tampered = q;
+        tampered.gross_amount = 2_000_000;
+        let tampered_digest = utils::quote_message_hash(&program_id, &tampered);
+        let wrong_recovered = utils::recover_signer(&tampered_digest, &sig_65).unwrap();
+        assert_ne!(wrong_recovered, signer_pubkey);
     }
 
     #[test]

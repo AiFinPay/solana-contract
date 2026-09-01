@@ -47,7 +47,7 @@ programs/splitter/
 │   │   ├── set_whitelisted_tokens.rs
 │   │   └── grant_*_role / rotate_*_role
 │   ├── state.rs         # #[account] structs + Quote
-│   ├── constants.rs     # EIP-712 fields, route IDs, PDA seeds, fee caps
+│   ├── constants.rs     # route IDs, PDA seeds, fee caps
 │   ├── error.rs         # ErrorCode
 │   └── utils.rs         # digest, recover_signer, split_gross, events
 └── tests/
@@ -61,8 +61,9 @@ programs/splitter/
   `Vec<RouteProfileEntry>`.
 - **Replay protection**: `PayerNonce` + `ConsumedNonce` PDAs with
   `init_if_needed`.
-- **EIP-712 parity**: digest uses `solana-keccak-hasher`; signer recovery
-  uses `solana-secp256k1-recover`.
+- **Solana-native digest**: `quote_message_hash` uses SHA-256 over a
+  domain-tagged, program-bound Borsh payload; signer recovery uses
+  `solana-secp256k1-recover`.
 - **Native SOL**: direct lamport mutation after duplicate-account checks.
 - **SPL stablecoins**: `anchor_spl::token::transfer` via `remaining_accounts`.
 
@@ -71,11 +72,10 @@ programs/splitter/
 These MUST match the EVM v1.4 deployment. Any change is a coordinated
 upgrade:
 
-- `EIP712_NAME`, `EIP712_VERSION`
-- `DOMAIN_TYPEHASH`, `QUOTE_TYPEHASH`
 - `ROUTE_AGENT_X402`, `ROUTE_MERCHANT_AIFP1`
 - `MAX_TREASURY_BPS = 500`, `MAX_IP_CREATOR_BPS = 100`
-- The field order in `quote_hash()`
+- The field order in `Quote` Borsh serialization used by
+  `quote_message_hash()`
 
 ## Key constraints for agents
 
