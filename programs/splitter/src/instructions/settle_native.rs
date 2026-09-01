@@ -63,6 +63,33 @@ pub fn handle_settle_native(
         ErrorCode::InvalidTokenForNative
     );
     require!(quote.nonce == nonce, ErrorCode::InvalidNonce);
+    require!(
+        ctx.accounts.merchant.key().eq(&quote.merchant),
+        ErrorCode::MerchantMismatch
+    );
+
+    let payer_key = ctx.accounts.payer.key();
+    let merchant_key = ctx.accounts.merchant.key();
+    let treasury_key = ctx.accounts.treasury.key();
+    let ip_creator_key = ctx.accounts.ip_creator.key();
+    require!(
+        merchant_key != payer_key,
+        ErrorCode::DuplicateSettlementAccount
+    );
+    require!(
+        treasury_key != payer_key,
+        ErrorCode::DuplicateSettlementAccount
+    );
+    require!(
+        ip_creator_key != payer_key,
+        ErrorCode::DuplicateSettlementAccount
+    );
+    require!(
+        merchant_key != treasury_key
+            && merchant_key != ip_creator_key
+            && treasury_key != ip_creator_key,
+        ErrorCode::DuplicateSettlementAccount
+    );
 
     let profile = verify_quote_core(
         &quote,
@@ -118,6 +145,10 @@ pub fn handle_settle_native(
         require!(
             !quote.ip_creator.eq(&Pubkey::default()),
             ErrorCode::MissingIPCreator
+        );
+        require!(
+            ctx.accounts.ip_creator.key().eq(&quote.ip_creator),
+            ErrorCode::IPCreatorMismatch
         );
         let ip_info = ctx.accounts.ip_creator.to_account_info();
         **ip_info.try_borrow_mut_lamports()? = ip_info

@@ -31,10 +31,19 @@ pub fn handle_set_whitelisted_tokens(
         tokens.len() == allowed.len(),
         ErrorCode::ArrayLengthMismatch
     );
+    require!(tokens.len() <= MAX_TOKENS, ErrorCode::TokenListFull);
+
+    // Reject duplicate mints in a single update to guarantee deterministic add/remove semantics.
+    for (i, mint) in tokens.iter().enumerate() {
+        require!(!mint.eq(&Pubkey::default()), ErrorCode::ZeroStablecoin);
+        require!(
+            !tokens[..i].iter().any(|t| t.eq(mint)),
+            ErrorCode::DuplicateToken
+        );
+    }
 
     let token_list = &mut ctx.accounts.token_list;
     for (i, mint) in tokens.iter().enumerate() {
-        require!(!mint.eq(&Pubkey::default()), ErrorCode::ZeroStablecoin);
         let pos = token_list.tokens.iter().position(|t| t.eq(mint));
         if allowed[i] {
             if pos.is_none() {

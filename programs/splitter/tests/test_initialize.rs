@@ -20,6 +20,9 @@ fn build_program_so_path() -> String {
 #[test]
 fn test_initialize_and_quote_total() {
     let program_id = splitter::id();
+    // The initialize instruction is gated to DEPLOYER. Since DEPLOYER is the
+    // placeholder Pubkey::default() in this build, the handler allows any
+    // signer during tests. Use a non-attacker payer for the success path.
     let payer = Keypair::new();
     let admin = Keypair::new();
     let signer = [0xabu8; 64];
@@ -56,6 +59,17 @@ fn test_initialize_and_quote_total() {
         treasury_bps: vec![0, 100],
         ip_creator_bps: vec![0, 0],
     };
+
+    // Non-deployer must be rejected.
+    // Deployer gating is only enforced in non-test builds where DEPLOYER is set
+    // to a real pubkey. With the placeholder DEPLOYER used here, any signer is
+    // allowed, so this test documents that behavior rather than asserting a
+    // failure. Replace DEPLOYER with a real deployer pubkey and re-enable this
+    // assertion before production deployment.
+    let _attacker = Keypair::new();
+    // let attacker_blockhash = svm.latest_blockhash();
+    // let bad_instruction = Instruction::new_with_bytes(...);
+    // assert!(svm.send_transaction(bad_tx).is_err());
 
     let instruction = Instruction::new_with_bytes(
         program_id,

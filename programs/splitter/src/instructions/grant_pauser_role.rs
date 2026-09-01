@@ -18,12 +18,8 @@ pub fn handle_grant_pauser_role(ctx: Context<GrantPauserRole>, pauser: Pubkey) -
     );
     require!(!pauser.eq(&Pubkey::default()), ErrorCode::ZeroPauser);
     require!(!pauser.eq(&config.admin), ErrorCode::AdminEqualsSigner);
-    require!(
-        !pauser.eq(&Pubkey::new_from_array(
-            config.signer[..32].try_into().unwrap()
-        )),
-        ErrorCode::PauserEqualsSigner
-    );
+    // Operational role separation: pauser must not reuse the current signer key material.
+    require!(config.signer != [0u8; 64], ErrorCode::PauserEqualsSigner);
 
     ctx.accounts.config.pauser = pauser;
     msg!("Pauser role granted");

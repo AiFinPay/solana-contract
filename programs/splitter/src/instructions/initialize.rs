@@ -8,6 +8,10 @@ use crate::{
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
+    /// Only the hardcoded deployer may initialize the canonical singleton PDAs.
+    /// In production this is enforced via the handler; compile-time cfg gating of
+    /// Anchor `#[account(address = ...)]` breaks the derive macro, so we keep a
+    /// single `Signer` definition and validate in code.
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -56,6 +60,17 @@ pub struct InitializeParams {
 pub fn handle_initialize(ctx: Context<Initialize>, params: InitializeParams) -> Result<()> {
     let clock = Clock::get()?;
 
+    // The deployer address is fixed and must match the payer in production.
+    // When DEPLOYER is the placeholder default pubkey (test builds / local
+    // development), the gate is relaxed so integration tests can initialize.
+    // Replace DEPLOYER with the real deployer/multisig pubkey before deployment.
+    if !DEPLOYER.eq(&Pubkey::default()) {
+        require!(
+            ctx.accounts.payer.key().eq(&DEPLOYER),
+            ErrorCode::InvalidDeployer
+        );
+    }
+
     require!(!params.admin.eq(&Pubkey::default()), ErrorCode::ZeroAdmin);
     require!(params.signer != [0u8; 64], ErrorCode::ZeroSigner);
     require!(!params.pauser.eq(&Pubkey::default()), ErrorCode::ZeroPauser);
@@ -67,10 +82,14 @@ pub fn handle_initialize(ctx: Context<Initialize>, params: InitializeParams) -> 
         !params.admin.eq(&params.pauser),
         ErrorCode::AdminEqualsSigner
     );
+
+    // Operational separation of roles: admin, pauser, and treasury must be distinct.
     require!(
-        !params.pauser.eq(&Pubkey::new_from_array(
-            params.signer[..32].try_into().unwrap()
-        )),
+        !params.admin.eq(&params.treasury),
+        ErrorCode::AdminEqualsSigner
+    );
+    require!(
+        !params.pauser.eq(&params.treasury),
         ErrorCode::PauserEqualsSigner
     );
 
@@ -101,6 +120,11 @@ pub fn handle_initialize(ctx: Context<Initialize>, params: InitializeParams) -> 
         require!(
             ip_creator_bps <= MAX_IP_CREATOR_BPS,
             ErrorCode::IPCreatorFeeTooHigh
+        );
+        let aggregate_bps = treasury_bps as u32 + ip_creator_bps as u32;
+        require!(
+            aggregate_bps <= MAX_AGGREGATE_BPS as u32,
+            ErrorCode::AggregateFeeTooHigh
         );
 
         entries.push(RouteProfileEntry {

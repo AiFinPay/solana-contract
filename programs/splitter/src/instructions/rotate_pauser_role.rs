@@ -3,20 +3,23 @@ use anchor_lang::prelude::*;
 use crate::{error::ErrorCode, state::Config};
 
 #[derive(Accounts)]
-pub struct RevokePauserRole<'info> {
+pub struct RotatePauserRole<'info> {
     #[account(mut, seeds = [crate::constants::CONFIG_SEED], bump = config.bump)]
     pub config: Account<'info, Config>,
 
     pub admin: Signer<'info>,
 }
 
-pub fn handle_revoke_pauser_role(ctx: Context<RevokePauserRole>) -> Result<()> {
+pub fn handle_rotate_pauser_role(ctx: Context<RotatePauserRole>, new_pauser: Pubkey) -> Result<()> {
     let config = &ctx.accounts.config;
     require!(
         config.admin.eq(&ctx.accounts.admin.key()),
         ErrorCode::Unauthorized
     );
-    ctx.accounts.config.pauser = Pubkey::default();
-    msg!("Pauser role revoked");
+    require!(!new_pauser.eq(&Pubkey::default()), ErrorCode::ZeroPauser);
+    require!(!new_pauser.eq(&config.admin), ErrorCode::AdminEqualsSigner);
+
+    ctx.accounts.config.pauser = new_pauser;
+    msg!("Pauser role rotated");
     Ok(())
 }

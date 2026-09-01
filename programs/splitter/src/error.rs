@@ -26,6 +26,8 @@ pub enum ErrorCode {
     IncorrectNativeValue,
     #[msg("Route requires an IP creator address")]
     MissingIPCreator,
+    #[msg("IP creator account does not match the quote")]
+    IPCreatorMismatch,
     #[msg("Recovered signer does not hold SIGN_OPERATOR_ROLE")]
     InvalidSigner,
     #[msg("Signature is malformed or recovery failed")]
@@ -36,6 +38,8 @@ pub enum ErrorCode {
     SignatureExpired,
     #[msg("Quote payer must match transaction signer")]
     InvalidPayer,
+    #[msg("Quote merchant must match the provided merchant account")]
+    MerchantMismatch,
     #[msg("Quote nonce does not match payer nonce")]
     InvalidNonce,
     #[msg("Quote nonce has already been consumed")]
@@ -52,6 +56,10 @@ pub enum ErrorCode {
     TreasuryFeeTooHigh,
     #[msg("IP creator fee basis points exceeds maximum")]
     IPCreatorFeeTooHigh,
+    #[msg("Aggregate fees exceed maximum")]
+    AggregateFeeTooHigh,
+    #[msg("Fees exceed gross amount")]
+    FeeExceedsGross,
     #[msg("Signer address must be non-zero")]
     ZeroSigner,
     #[msg("Pauser address must be non-zero")]
@@ -62,6 +70,10 @@ pub enum ErrorCode {
     AdminEqualsSigner,
     #[msg("Admin address must be non-zero")]
     ZeroAdmin,
+    #[msg("Deployer address must be non-zero")]
+    ZeroDeployer,
+    #[msg("Caller is not the authorized deployer")]
+    InvalidDeployer,
     #[msg("Token and flag array lengths must match")]
     ArrayLengthMismatch,
     #[msg("Token list is full")]
@@ -72,4 +84,8 @@ pub enum ErrorCode {
     RouteTreasuryZero,
     #[msg("Stablecoin mint address must be non-zero")]
     ZeroStablecoin,
+    #[msg("Duplicate token mint in update")]
+    DuplicateToken,
+    #[msg("Settlement accounts must be distinct from the payer and from each other")]
+    DuplicateSettlementAccount,
 }

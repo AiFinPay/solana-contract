@@ -1,6 +1,7 @@
 skip_local_validator = true
 
 [toolchain]
+solana_version = "4.1.2"
 
 [features]
 resolution = true

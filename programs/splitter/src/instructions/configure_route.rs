@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    constants::{MAX_IP_CREATOR_BPS, MAX_TREASURY_BPS},
+    constants::{MAX_AGGREGATE_BPS, MAX_IP_CREATOR_BPS, MAX_ROUTES, MAX_TREASURY_BPS},
     error::ErrorCode,
     state::{Config, ProfilesIndex, RouteProfileEntry},
 };
@@ -37,12 +37,11 @@ pub fn handle_configure_route(
         ip_creator_bps <= MAX_IP_CREATOR_BPS,
         ErrorCode::IPCreatorFeeTooHigh
     );
-    if !route_treasury.eq(&Pubkey::default()) {
-        require!(
-            !route_treasury.eq(&Pubkey::default()),
-            ErrorCode::RouteTreasuryZero
-        );
-    }
+    let aggregate_bps = treasury_bps as u32 + ip_creator_bps as u32;
+    require!(
+        aggregate_bps <= MAX_AGGREGATE_BPS as u32,
+        ErrorCode::AggregateFeeTooHigh
+    );
 
     let clock = Clock::get()?;
     let profiles = &mut ctx.accounts.profiles;
@@ -53,10 +52,7 @@ pub fn handle_configure_route(
         entry.route_treasury = route_treasury;
         entry.configured_at = clock.unix_timestamp;
     } else {
-        require!(
-            profiles.entries.len() < profiles.entries.capacity(),
-            ErrorCode::UnknownRoute
-        );
+        require!(profiles.entries.len() < MAX_ROUTES, ErrorCode::UnknownRoute);
         profiles.entries.push(RouteProfileEntry {
             route_id,
             treasury_bps,

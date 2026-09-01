@@ -89,16 +89,16 @@ pub mod splitter {
         crate::instructions::grant_signer_role::handle_grant_signer_role(ctx, signer)
     }
 
-    pub fn revoke_signer_role(ctx: Context<RevokeSignerRole>) -> Result<()> {
-        crate::instructions::revoke_signer_role::handle_revoke_signer_role(ctx)
+    pub fn rotate_signer_role(ctx: Context<RotateSignerRole>, new_signer: [u8; 64]) -> Result<()> {
+        crate::instructions::rotate_signer_role::handle_rotate_signer_role(ctx, new_signer)
     }
 
     pub fn grant_pauser_role(ctx: Context<GrantPauserRole>, pauser: Pubkey) -> Result<()> {
         crate::instructions::grant_pauser_role::handle_grant_pauser_role(ctx, pauser)
     }
 
-    pub fn revoke_pauser_role(ctx: Context<RevokePauserRole>) -> Result<()> {
-        crate::instructions::revoke_pauser_role::handle_revoke_pauser_role(ctx)
+    pub fn rotate_pauser_role(ctx: Context<RotatePauserRole>, new_pauser: Pubkey) -> Result<()> {
+        crate::instructions::rotate_pauser_role::handle_rotate_pauser_role(ctx, new_pauser)
     }
 
     pub fn quote_total(

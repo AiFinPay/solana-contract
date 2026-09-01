@@ -66,14 +66,42 @@ pub fn quote_hash(quote: &Quote) -> [u8; 32] {
 
 /// Recover the secp256k1 public key from a 65-byte Ethereum-style signature.
 /// signature layout: r (32) || s (32) || v (1). recovery_id = v - 27.
+/// Rejects high-s values to prevent ECDSA malleability (EIP-2 canonical sigs).
 pub fn recover_signer(digest: &[u8; 32], signature: &[u8; 65]) -> Result<[u8; 64]> {
     use solana_secp256k1_recover::secp256k1_recover;
 
     let v = signature[64];
     let recovery_id = v.checked_sub(27).ok_or(ErrorCode::InvalidSignature)?;
+
+    let s_high = is_high_s(signature);
+    if s_high {
+        return Err(ErrorCode::InvalidSignature.into());
+    }
+
     let pubkey = secp256k1_recover(digest, recovery_id, signature)
         .map_err(|_| ErrorCode::InvalidSignature)?;
     Ok(pubkey.to_bytes())
+}
+
+/// Return true if the s-component of the signature is greater than half the
+/// secp256k1 curve order (EIP-2 non-canonical high-s).
+fn is_high_s(signature: &[u8; 65]) -> bool {
+    // Half secp256k1 curve order N (N = HALF_N * 2 - 1; HALF_N = (N+1)/2), big-endian.
+    const HALF_N: [u8; 32] = [
+        0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46, 0x68, 0x1B,
+        0x20, 0xA0,
+    ];
+
+    let s = &signature[32..64];
+    // Lexicographic compare against HALF_N (both big-endian). If s > HALF_N, it's high-s.
+    for i in 0..32 {
+        if s[i] != HALF_N[i] {
+            return s[i] > HALF_N[i];
+        }
+    }
+    // s == HALF_N is low-s (the boundary itself is allowed by EIP-2).
+    false
 }
 
 /// Validate the signed quote and mark the nonce consumed. Returns the route profile.
@@ -122,7 +150,7 @@ pub fn verify_quote_core(
     Ok(profile.clone())
 }
 
-fn find_route_profile<'a>(
+pub fn find_route_profile<'a>(
     entries: &'a [RouteProfileEntry],
     route_id: &[u8; 32],
 ) -> Result<&'a RouteProfileEntry> {
@@ -171,7 +199,7 @@ pub fn split_gross(
     let merchant_amt = gross_amount
         .checked_sub(treasury_amt)
         .and_then(|v| v.checked_sub(ip_amt))
-        .ok_or(ErrorCode::ZeroAmount)?;
+        .ok_or(ErrorCode::FeeExceedsGross)?;
     require!(merchant_amt > 0, ErrorCode::ZeroAmount);
 
     Ok((merchant_amt, treasury_amt, ip_amt))

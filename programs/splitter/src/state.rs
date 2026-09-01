@@ -26,6 +26,12 @@ pub struct TokenList {
     pub bump: u8,
 }
 
+impl TokenList {
+    pub fn is_allowed(&self, mint: Pubkey) -> bool {
+        self.tokens.iter().any(|t| t.eq(&mint))
+    }
+}
+
 /// One route profile entry.
 #[account]
 #[derive(InitSpace)]

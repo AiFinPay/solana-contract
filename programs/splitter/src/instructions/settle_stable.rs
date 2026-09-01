@@ -4,7 +4,7 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer as SplTransfer};
 use crate::{
     error::ErrorCode,
     state::{Config, ConsumedNonce, PayerNonce, ProfilesIndex, Quote, TokenList},
-    utils::{emit_payment, split_gross, verify_quote_core},
+    utils::{emit_payment, find_route_profile, split_gross, verify_quote_core},
 };
 
 #[derive(Accounts)]
@@ -69,8 +69,32 @@ pub fn handle_settle_stable<'a>(
     let remaining = ctx.remaining_accounts;
     require!(remaining.len() >= 3, ErrorCode::UnsupportedToken);
 
+    // Validate that remaining accounts are distinct from each other and from the payer.
+    let payer_key = ctx.accounts.payer.key();
+    for (i, account_i) in remaining.iter().enumerate() {
+        let key_i = account_i.key();
+        require!(key_i != payer_key, ErrorCode::DuplicateSettlementAccount);
+        for account_j in remaining.iter().skip(i + 1) {
+            require!(
+                key_i != account_j.key(),
+                ErrorCode::DuplicateSettlementAccount
+            );
+        }
+    }
+
     let mint = ctx.accounts.mint.key();
     let token_program = ctx.accounts.token_program.key();
+
+    // Determine effective treasury from a read-only profile lookup before
+    // deserializing the treasury ATA. This validates the treasury ATA owner
+    // structurally at parse time rather than relying on a later manual check.
+    let preview = find_route_profile(&ctx.accounts.profiles.entries, &quote.route_id)?;
+    let effective_treasury = if preview.route_treasury.eq(&Pubkey::default()) {
+        ctx.accounts.config.treasury
+    } else {
+        preview.route_treasury
+    };
+
     let _payer_ata = deserialize_token_account(
         &remaining[0],
         token_program,
@@ -79,7 +103,12 @@ pub fn handle_settle_stable<'a>(
     )?;
     let _merchant_ata =
         deserialize_token_account(&remaining[1], token_program, &mint, Some(&quote.merchant))?;
-    let treasury_ata = deserialize_token_account(&remaining[2], token_program, &mint, None)?;
+    let _treasury_ata = deserialize_token_account(
+        &remaining[2],
+        token_program,
+        &mint,
+        Some(&effective_treasury),
+    )?;
 
     let profile = verify_quote_core(
         &quote,
@@ -90,16 +119,6 @@ pub fn handle_settle_stable<'a>(
         &ctx.accounts.profiles,
         &ctx.accounts.config,
     )?;
-
-    let effective_treasury = if profile.route_treasury.eq(&Pubkey::default()) {
-        ctx.accounts.config.treasury
-    } else {
-        profile.route_treasury
-    };
-    require!(
-        treasury_ata.owner == effective_treasury,
-        ErrorCode::ZeroTreasury
-    );
 
     let (merchant_amt, treasury_amt, ip_amt) =
         split_gross(quote.gross_amount, &profile, &quote.ip_creator)?;
@@ -139,12 +158,16 @@ pub fn handle_settle_stable<'a>(
             ErrorCode::MissingIPCreator
         );
         require!(remaining.len() >= 4, ErrorCode::MissingIPCreator);
-        let _ip_ata = deserialize_token_account(
+        let ip_ata = deserialize_token_account(
             &remaining[3],
             token_program,
             &mint,
             Some(&quote.ip_creator),
         )?;
+        require!(
+            ip_ata.owner == quote.ip_creator,
+            ErrorCode::IPCreatorMismatch
+        );
         token::transfer(
             CpiContext::new(
                 token_program_id,
@@ -177,10 +200,4 @@ fn deserialize_token_account(
         require!(account.owner == *owner, ErrorCode::InvalidPayer);
     }
     Ok(account)
-}
-
-impl TokenList {
-    pub fn is_allowed(&self, mint: Pubkey) -> bool {
-        self.tokens.iter().any(|t| t.eq(&mint))
-    }
 }

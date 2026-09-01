@@ -10,6 +10,8 @@ pub const BPS_DENOMINATOR: u64 = 10_000;
 /// Per-route fee caps.
 pub const MAX_TREASURY_BPS: u16 = 500;
 pub const MAX_IP_CREATOR_BPS: u16 = 100;
+/// Aggregate fee cap (treasury + IP creator). Cannot exceed 100% or the merchant amount underflow.
+pub const MAX_AGGREGATE_BPS: u16 = 1_000;
 
 /// Canonical route identifiers (keccak256 of the route name).
 /// Matches the EVM v1.4 deployment exactly.
@@ -46,3 +48,7 @@ pub const QUOTE_TYPEHASH: [u8; 32] = [
     0xa8, 0xb0, 0x55, 0x6d, 0x3a, 0x3a, 0x90, 0x0b, 0xcd, 0xe8, 0x26, 0x56, 0x92, 0xfc, 0x8a, 0x21,
     0x83, 0xd2, 0x2e, 0x26, 0x5f, 0x3b, 0xc6, 0x58, 0xe0, 0x4f, 0xe8, 0x16, 0x2e, 0x02, 0xf4, 0xbf,
 ];
+
+/// Authorized deployer. This pubkey is the only signer allowed to call `initialize`.
+/// Replace with the real deployer/multisig pubkey before deployment.
+pub const DEPLOYER: Pubkey = Pubkey::new_from_array([0u8; 32]);
