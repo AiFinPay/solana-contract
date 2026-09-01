@@ -44,7 +44,9 @@ The CI pipeline in `.github/workflows/ci.yml` runs all four checks
 
 ## Overview
 
-- Single Anchor **v1.1.2** program (`programs/splitter/`).
+- Two Anchor **v1.1.2** programs:
+  - `programs/splitter/` — full-featured registry-based splitter.
+  - `programs/splitter_light/` — minimal hardcoded SOL + USDC/USDT variant.
 - Two settlement routes at v1.4:
   - `ROUTE_AGENT_X402` — agent-to-agent, default fees 0 / 0 bps.
   - `ROUTE_MERCHANT_AIFP1` — merchant, default fee 100 / 0 bps.
@@ -67,12 +69,14 @@ The CI pipeline in `.github/workflows/ci.yml` runs all four checks
   coverage, known issues.
 - [`docs/adr/`](./docs/adr/) — Architecture Decision Records.
 - [`AGENTS.md`](./AGENTS.md) — agent / opencode instructions.
+- [`programs/splitter/README.md`](./programs/splitter/README.md) — full splitter program reference.
+- [`programs/splitter_light/README.md`](./programs/splitter_light/README.md) — light program reference.
 
 ## Repository Layout
 
 ```
 .
-├── programs/splitter/         # Anchor program (cdylib + lib)
+├── programs/splitter/         # Full-featured Anchor program (cdylib + lib)
 │   ├── src/
 │   │   ├── lib.rs             # declare_id, #[program] entrypoints, inline tests
 │   │   ├── constants.rs       # EIP-712 fields, route IDs, seeds, caps
@@ -81,7 +85,14 @@ The CI pipeline in `.github/workflows/ci.yml` runs all four checks
 │   │   ├── utils.rs           # digest, recover_signer, split_gross, events
 │   │   └── instructions/      # one file per instruction handler
 │   ├── tests/test_initialize.rs   # litesvm integration test
-│   └── Cargo.toml
+│   ├── Cargo.toml
+│   ├── AGENTS.md              # Program-level agent instructions
+│   └── README.md              # Program-level quick reference
+├── programs/splitter_light/   # Minimal hardcoded variant
+│   ├── src/                   # Same module layout
+│   ├── Cargo.toml
+│   ├── AGENTS.md              # Program-level agent instructions
+│   └── README.md              # Program-level quick reference
 ├── docs/                      # Business logic, implementation status, ADRs
 ├── .github/workflows/ci.yml   # fmt + test + clippy + build-sbf
 ├── Anchor.toml                # `skip_local_validator = true`

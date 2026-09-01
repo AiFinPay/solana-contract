@@ -26,18 +26,17 @@ each time a feature is delivered, refactored, or removed.
 | `disable_route`         |  ✅   | `instructions/disable_route.rs`          | — |
 | `set_whitelisted_tokens`|  ✅   | `instructions/set_whitelisted_tokens.rs` | — |
 | `grant_signer_role`     |  ✅   | `instructions/grant_signer_role.rs`      | — |
-| `revoke_signer_role`    |  ✅   | `instructions/revoke_signer_role.rs`     | — |
+| `rotate_signer_role`    |  ✅   | `instructions/rotate_signer_role.rs`     | — |
 | `grant_pauser_role`     |  ✅   | `instructions/grant_pauser_role.rs`      | — |
-| `revoke_pauser_role`    |  ✅   | `instructions/revoke_pauser_role.rs`     | — |
-| `increment`             |  🟡   | `instructions/increment.rs`              | — (legacy, see note) |
+| `rotate_pauser_role`    |  ✅   | `instructions/rotate_pauser_role.rs`     | — |
 
-### Note on `increment`
+### Light program (`splitter_light`)
 
-`instructions/increment.rs` is leftover scaffolding from the original
-Anchor template (`create-anchor-cli`). It references a `Counter` state
-type that does not exist in the v1.4 program. It is **not** wired into
-`lib.rs` and cannot be invoked. Scheduled for removal in the next
-cleanup pass.
+| Instruction     | Status | Handler file                       | Tests |
+|-----------------|:------:|-------------------------------------|-------|
+| `settle_native` |  ✅    | `instructions/settle_native.rs`    | inline helpers only |
+| `settle_stable` |  ✅    | `instructions/settle_stable.rs`    | inline helpers only |
+| `set_signer`    |  ✅    | `instructions/set_signer.rs`       | — |
 
 ## State accounts
 
@@ -70,25 +69,24 @@ cleanup pass.
 
 `.github/workflows/ci.yml` runs on every PR and push to `main` / `dev`:
 
-1. `cargo fmt --check` (working dir: `splitter`)
-2. `cargo test --locked` (working dir: `splitter`)
-3. `cargo clippy --all-targets -- -D warnings` (working dir: `splitter`)
-4. `cargo build-sbf` (working dir: `splitter`)
+1. `cargo fmt --check`
+2. `cargo test --locked`
+3. `cargo clippy --all-targets -- -D warnings`
+4. `cargo build-sbf`
 
-> Note: the workflow currently has `working-directory: splitter` set, but
-> this repo does not have a top-level `splitter/` directory — the actual
-> Cargo workspace is at the repo root. This is a known issue tracked
-> below; local CI commands work because they target the root workspace.
+All steps run from the repo root because the workspace is defined at the
+root level (`Cargo.toml` with `members = ["programs/*"]`).
 
 ## Known issues / TODO
 
-- [ ] **CI working-directory** — `.github/workflows/ci.yml` references a
-      `splitter/` subdirectory that does not exist. Fix by either (a)
-      restructuring into a Cargo workspace subdir matching the workflow,
-      or (b) updating the workflow to drop the working-directory
-      override. Tracked.
-- [ ] **`instructions/increment.rs`** — leftover template code, see
-      note above.
+- [x] **CI working-directory** — `.github/workflows/ci.yml` was updated
+      to run from the repo root; the workspace members live under
+      `programs/`. Verify on next CI run.
+- [ ] **`splitter_light` integration tests** — add litesvm tests for
+      `settle_native`, `settle_stable`, and `set_signer`.
+- [ ] **`splitter_light` mainnet placeholders** — replace
+      `PROTOCOL_TREASURY` and `INITIAL_SIGNER` with real values before
+      deployment.
 - [ ] **Stable-settlement integration test** — only the `initialize`
       flow is covered by `litesvm` today. Add a positive and a negative
       `settle_stable` test once test keypairs are generated.

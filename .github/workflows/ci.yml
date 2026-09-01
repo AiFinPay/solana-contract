@@ -20,18 +20,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.89.0
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: splitter
       - name: Rust formatting
-        working-directory: splitter
         run: cargo fmt --check
       - name: Rust tests
-        working-directory: splitter
         run: cargo test --locked
       - name: Rust clippy
-        working-directory: splitter
         run: cargo clippy --all-targets -- -D warnings
       - name: SBF build gate
-        working-directory: splitter
         run: cargo build-sbf

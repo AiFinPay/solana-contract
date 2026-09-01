@@ -52,7 +52,10 @@ single quote schema being valid on both chains.
 
 ```
 programs/splitter/
+├── AGENTS.md              # Program-level agent instructions
+├── README.md              # Program-level quick reference
 ├── lib.rs                 # declare_id, #[program] entrypoints, inline unit tests
+├── instructions.rs        # Re-exports every instruction module
 ├── constants.rs           # EIP-712 name/version, typehashes, route IDs, seeds, caps
 ├── state.rs               # Config, TokenList, RouteProfileEntry, ProfilesIndex,
 │                          # PayerNonce, ConsumedNonce, Quote
@@ -70,7 +73,22 @@ programs/splitter/
     ├── configure_route.rs         # admin sets per-route fees + route_treasury
     ├── enable_route.rs / disable_route.rs
     ├── set_whitelisted_tokens.rs  # admin edits SPL whitelist
-    └── grant_*_role / revoke_*_role  # admin rotates signer & pauser
+    └── grant_*_role / rotate_*_role  # admin rotates signer & pauser
+
+programs/splitter_light/
+├── AGENTS.md              # Program-level agent instructions
+├── README.md              # Program-level quick reference
+└── src/                   # Same module layout (minimal hardcoded variant)
+    ├── lib.rs
+    ├── constants.rs
+    ├── state.rs
+    ├── error.rs
+    ├── utils.rs
+    ├── instructions.rs
+    └── instructions/
+        ├── settle_native.rs
+        ├── settle_stable.rs
+        └── set_signer.rs
 ```
 
 ## 4. On-Chain State

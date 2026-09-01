@@ -16,7 +16,7 @@ cargo build-sbf                        # SBF build gate (required before deploy)
 
 ## CI
 
-All CI steps run in the `splitter` subdirectory (not repo root):
+All CI steps run from the repo root (workspace-level):
 1. `cargo fmt --check`
 2. `cargo test --locked`
 3. `cargo clippy --all-targets -- -D warnings`
@@ -25,7 +25,9 @@ All CI steps run in the `splitter` subdirectory (not repo root):
 ## Project Structure
 
 ```
-programs/splitter/     # Single Anchor program (cdylib + lib)
+programs/splitter/     # Full-featured Anchor program (cdylib + lib)
+  AGENTS.md           # Program-level agent instructions
+  README.md           # Program-level quick reference
   src/
     lib.rs            # declare_id, #[program] module, inline unit tests
     instructions/    # Handler implementations (initialize, settle_*, pause, route config, etc.)
@@ -33,6 +35,11 @@ programs/splitter/     # Single Anchor program (cdylib + lib)
     constants.rs      # Route IDs (ROUTE_AGENT_X402, ROUTE_MERCHANT_AIFP1), seed constants
     error.rs          # Error codes
     utils.rs          # quote_hash, split_gross, ecrecover helpers
+  tests/              # litesvm integration tests
+programs/splitter_light/   # Minimal hardcoded variant
+  AGENTS.md           # Program-level agent instructions
+  README.md           # Program-level quick reference
+  src/                # Same module layout
 scripts/              # Empty (no scripts yet)
 ```
 
@@ -44,6 +51,10 @@ scripts/              # Empty (no scripts yet)
 - Tests use `litesvm` (Solana program unit test framework), NOT Anchor's JS test harness
 - Route IDs (ROUTE_AGENT_X402, ROUTE_MERCHANT_AIFP1) are hardcoded constants that must match EVM v1.4
 - Signer role uses secp256k1 ecrecover (solana-secp256k1-recover, solana-keccak-hasher)
+- Two programs now live under `programs/`: `splitter` (full) and `splitter_light` (minimal)
+- See per-program `AGENTS.md` for program-specific rules:
+  - [`programs/splitter/AGENTS.md`](./programs/splitter/AGENTS.md)
+  - [`programs/splitter_light/AGENTS.md`](./programs/splitter_light/AGENTS.md)
 
 ## Key Constraints
 
