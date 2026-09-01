@@ -148,6 +148,82 @@ mod tests {
     }
 
     #[test]
+    fn quote_message_hash_is_deterministic_and_matches_off_chain_implementation() {
+        let q = Quote {
+            payer: Pubkey::new_unique(),
+            merchant: Pubkey::new_unique(),
+            token: Pubkey::new_unique(),
+            gross_amount: 1_000_000,
+            ip_creator: Pubkey::new_unique(),
+            valid_until: i64::MAX,
+            order_id_hash: [1u8; 32],
+            nonce: 0,
+            route_id: ROUTE_AGENT_X402,
+        };
+
+        // On-chain Solana-native digest.
+        let program_id = crate::id();
+        let on_chain = utils::quote_message_hash(&program_id, &q);
+
+        // Off-chain re-implementation: tag + program_id + Borsh(Quote), SHA-256.
+        use anchor_lang::AnchorSerialize;
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(crate::constants::MESSAGE_DOMAIN_TAG);
+        hasher.update(program_id.as_ref());
+        let mut quote_bytes = Vec::with_capacity(256);
+        q.serialize(&mut quote_bytes).unwrap();
+        hasher.update(quote_bytes);
+        let off_chain: [u8; 32] = hasher.finalize().into();
+
+        assert_eq!(on_chain, off_chain);
+
+        let second = utils::quote_message_hash(&program_id, &q);
+        assert_eq!(on_chain, second);
+    }
+
+    #[test]
+    fn secp256k1_signature_recovers_signer_public_key() {
+        use k256::ecdsa::SigningKey;
+        use rand_core::OsRng;
+        use sha2::{Digest, Sha256};
+
+        let signing_key = SigningKey::random(&mut OsRng);
+        let verifying_key = signing_key.verifying_key();
+        let signer_pubkey: [u8; 64] = verifying_key.to_encoded_point(false).as_bytes()[1..]
+            .try_into()
+            .unwrap();
+
+        let q = Quote {
+            payer: Pubkey::new_unique(),
+            merchant: Pubkey::new_unique(),
+            token: Pubkey::default(),
+            gross_amount: 1_000_000,
+            ip_creator: Pubkey::default(),
+            valid_until: i64::MAX,
+            order_id_hash: [1u8; 32],
+            nonce: 0,
+            route_id: ROUTE_AGENT_X402,
+        };
+
+        let program_id = crate::id();
+        let digest = utils::quote_message_hash(&program_id, &q);
+
+        // Sign the digest as a prehash using k256. `sign_digest_recoverable`
+        // returns the raw 64-byte signature and the recovery id (0 or 1).
+        let (raw_sig, rec_id) = signing_key
+            .sign_digest_recoverable(Sha256::new_with_prefix(&digest))
+            .expect("recoverable sign");
+
+        let mut sig_65 = [0u8; 65];
+        sig_65[..64].copy_from_slice(raw_sig.to_bytes().as_ref());
+        sig_65[64] = 27 + rec_id.to_byte();
+
+        let recovered = utils::recover_signer(&digest, &sig_65).unwrap();
+        assert_eq!(recovered, signer_pubkey);
+    }
+
+    #[test]
     fn split_agent_route_has_zero_fees() {
         let profile = RouteProfileEntry {
             route_id: ROUTE_AGENT_X402,

@@ -25,8 +25,8 @@ pub struct SetSigner<'info> {
 }
 
 /// Rotate the trusted secp256k1 signer. The caller must provide a valid
-/// secp256k1 signature from the *current* signer over the EIP-712 digest of
-/// the new signer pubkey.
+/// secp256k1 signature from the *current* signer over the Solana-native digest
+/// of the new signer pubkey.
 ///
 /// On first ever call (when `config.initialized == false`), the digest is
 /// verified against `INITIAL_SIGNER` (the hardcoded bootstrap pubkey)

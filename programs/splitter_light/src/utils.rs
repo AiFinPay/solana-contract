@@ -2,7 +2,10 @@ use anchor_lang::prelude::*;
 use solana_keccak_hasher::hashv as keccak256_hashv;
 
 use crate::{
-    constants::*,
+    constants::{
+        BPS_DENOMINATOR, MAX_IP_CREATOR_BPS, MAX_TREASURY_BPS, MESSAGE_DOMAIN_TAG,
+        ROUTE_AGENT_X402, ROUTE_MERCHANT_AIFP1,
+    },
     error::ErrorCode,
     state::{Config, ConsumedNonce, PayerNonce, Quote},
 };
@@ -62,39 +65,37 @@ impl RouteProfile {
     }
 }
 
-/// Compute the EIP-712-style digest for a Quote.
+/// Compute the Solana-native signed message hash for a Quote.
+///
+/// This is NOT EIP-712. It uses:
+/// - a versioned domain tag (not keccak),
+/// - the Solana program_id as the domain,
+/// - Borsh serialization of `Quote`,
+/// - SHA-256 (Solana's native hash function).
+///
+/// Off-chain signers must implement the same construction.
+pub fn quote_message_hash(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
+    let mut quote_bytes = Vec::with_capacity(256);
+    quote
+        .serialize(&mut quote_bytes)
+        .expect("Quote serialization failed");
+    solana_program::hash::hashv(&[MESSAGE_DOMAIN_TAG, program_id.as_ref(), &quote_bytes]).to_bytes()
+}
+
+/// Canonical digest exposed for tests and off-chain signing compatibility.
+/// Alias for [`quote_message_hash`].
 pub fn digest(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
-    let domain = domain_separator(program_id);
-    let q_hash = quote_hash(quote);
-    let prefix = b"\x19\x01";
-    keccak256_hashv(&[prefix, &domain, &q_hash]).to_bytes()
+    quote_message_hash(program_id, quote)
 }
 
-pub fn domain_separator(program_id: &Pubkey) -> [u8; 32] {
-    let name_hash = keccak256_hashv(&[EIP712_NAME]).to_bytes();
-    let version_hash = keccak256_hashv(&[EIP712_VERSION]).to_bytes();
-    keccak256_hashv(&[
-        &DOMAIN_TYPEHASH,
-        &name_hash,
-        &version_hash,
-        program_id.as_ref(),
-    ])
-    .to_bytes()
-}
-
+/// Keccak256 hash of a Quote (kept for tests / backwards documentation only).
+/// Prefer [`quote_message_hash`] for new signatures.
 pub fn quote_hash(quote: &Quote) -> [u8; 32] {
-    let mut buf = Vec::with_capacity(224);
-    buf.extend_from_slice(&QUOTE_TYPEHASH);
-    buf.extend_from_slice(quote.payer.as_ref());
-    buf.extend_from_slice(quote.merchant.as_ref());
-    buf.extend_from_slice(quote.token.as_ref());
-    buf.extend_from_slice(&quote.gross_amount.to_le_bytes());
-    buf.extend_from_slice(quote.ip_creator.as_ref());
-    buf.extend_from_slice(&quote.valid_until.to_le_bytes());
-    buf.extend_from_slice(&quote.order_id_hash);
-    buf.extend_from_slice(&quote.nonce.to_le_bytes());
-    buf.extend_from_slice(&quote.route_id);
-    keccak256_hashv(&[&buf]).to_bytes()
+    let mut quote_bytes = Vec::with_capacity(256);
+    quote
+        .serialize(&mut quote_bytes)
+        .expect("Quote serialization failed");
+    keccak256_hashv(&[&quote_bytes]).to_bytes()
 }
 
 /// Recover the secp256k1 public key from a 65-byte Ethereum-style signature.
@@ -225,16 +226,23 @@ pub fn emit_payment(
 }
 
 /// Digest over the `set_signer` payload (the current signer and the new
-/// signer pubkey) using EIP-712 conventions. Caller signs this digest with
-/// secp256k1. Including `current_signer` binds the signature to a specific
-/// rotation step, preventing stale-signer replay.
+/// signer pubkey). Caller signs this digest with secp256k1. Including
+/// `current_signer` binds the signature to a specific rotation step,
+/// preventing stale-signer replay.
+///
+/// This is NOT EIP-712. It uses a versioned domain tag + program_id +
+/// SHA-256 over the concatenated signer bytes.
 pub fn set_signer_digest(
     program_id: &Pubkey,
     current_signer: &[u8; 64],
     new_signer: &[u8; 64],
 ) -> [u8; 32] {
-    let domain = domain_separator(program_id);
-    let payload = keccak256_hashv(&[current_signer, new_signer]).to_bytes();
-    let prefix = b"\x19\x01";
-    keccak256_hashv(&[prefix, &domain, &payload]).to_bytes()
+    solana_program::hash::hashv(&[
+        MESSAGE_DOMAIN_TAG,
+        b"-set-signer",
+        program_id.as_ref(),
+        current_signer,
+        new_signer,
+    ])
+    .to_bytes()
 }

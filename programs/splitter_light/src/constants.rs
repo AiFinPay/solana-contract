@@ -1,8 +1,8 @@
 use anchor_lang::prelude::*;
 
-/// EIP-712-style domain separator (matches EVM v1.4 exactly).
-pub const EIP712_NAME: &[u8] = b"AiFinPayB2BSplitter";
-pub const EIP712_VERSION: &[u8] = b"1";
+/// Solana-native message domain tag. Included in the signed message prefix to
+/// make the digest domain-separated and versioned. Not EIP-712.
+pub const MESSAGE_DOMAIN_TAG: &[u8] = b"AiFinPay-Solana-v1.4";
 
 /// Basis-point denominator.
 pub const BPS_DENOMINATOR: u64 = 10_000;
@@ -46,15 +46,3 @@ pub const INITIAL_SIGNER: [u8; 64] = [
 pub const CONFIG_SEED: &[u8] = b"config";
 pub const PAYER_NONCE_SEED: &[u8] = b"payer-nonce";
 pub const CONSUMED_NONCE_SEED: &[u8] = b"consumed-nonce";
-
-/// EIP-712 domain typehash (keccak256 of "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)").
-pub const DOMAIN_TYPEHASH: [u8; 32] = [
-    0x8b, 0x73, 0xc3, 0xc6, 0x9b, 0xb8, 0xfe, 0x3d, 0x51, 0x2e, 0xcc, 0x4c, 0xf7, 0x59, 0xcc, 0x79,
-    0x23, 0x9f, 0x7b, 0x17, 0x9b, 0x0f, 0xfa, 0xca, 0xa9, 0xa7, 0x5d, 0x52, 0x2b, 0x39, 0x40, 0x0f,
-];
-
-/// EIP-712 Quote typehash (keccak256 of the canonical Quote tuple encoding).
-pub const QUOTE_TYPEHASH: [u8; 32] = [
-    0xa8, 0xb0, 0x55, 0x6d, 0x3a, 0x3a, 0x90, 0x0b, 0xcd, 0xe8, 0x26, 0x56, 0x92, 0xfc, 0x8a, 0x21,
-    0x83, 0xd2, 0x2e, 0x26, 0x5f, 0x3b, 0xc6, 0x58, 0xe0, 0x4f, 0xe8, 0x16, 0x2e, 0x02, 0xf4, 0xbf,
-];

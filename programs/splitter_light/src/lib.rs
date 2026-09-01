@@ -83,6 +83,75 @@ mod tests {
     }
 
     #[test]
+    fn quote_message_hash_matches_off_chain_implementation() {
+        use sha2::{Digest, Sha256};
+
+        let q = Quote {
+            payer: Pubkey::new_unique(),
+            merchant: Pubkey::new_unique(),
+            token: Pubkey::default(),
+            gross_amount: 1_000_000,
+            ip_creator: Pubkey::default(),
+            valid_until: i64::MAX,
+            order_id_hash: [1u8; 32],
+            nonce: 0,
+            route_id: ROUTE_AGENT_X402,
+        };
+
+        let program_id = crate::id();
+        let on_chain = utils::quote_message_hash(&program_id, &q);
+
+        let mut hasher = Sha256::new();
+        hasher.update(crate::constants::MESSAGE_DOMAIN_TAG);
+        hasher.update(program_id.as_ref());
+        let mut quote_bytes = Vec::with_capacity(256);
+        q.serialize(&mut quote_bytes).unwrap();
+        hasher.update(quote_bytes);
+        let off_chain: [u8; 32] = hasher.finalize().into();
+
+        assert_eq!(on_chain, off_chain);
+    }
+
+    #[test]
+    fn secp256k1_signature_recovers_signer_public_key() {
+        use k256::ecdsa::SigningKey;
+        use rand_core::OsRng;
+        use sha2::{Digest, Sha256};
+
+        let signing_key = SigningKey::random(&mut OsRng);
+        let verifying_key = signing_key.verifying_key();
+        let signer_pubkey: [u8; 64] = verifying_key.to_encoded_point(false).as_bytes()[1..]
+            .try_into()
+            .unwrap();
+
+        let q = Quote {
+            payer: Pubkey::new_unique(),
+            merchant: Pubkey::new_unique(),
+            token: Pubkey::default(),
+            gross_amount: 1_000_000,
+            ip_creator: Pubkey::default(),
+            valid_until: i64::MAX,
+            order_id_hash: [1u8; 32],
+            nonce: 0,
+            route_id: ROUTE_AGENT_X402,
+        };
+
+        let program_id = crate::id();
+        let digest = utils::quote_message_hash(&program_id, &q);
+
+        let (raw_sig, rec_id) = signing_key
+            .sign_digest_recoverable(Sha256::new_with_prefix(&digest))
+            .expect("recoverable sign");
+
+        let mut sig_65 = [0u8; 65];
+        sig_65[..64].copy_from_slice(raw_sig.to_bytes().as_ref());
+        sig_65[64] = 27 + rec_id.to_byte();
+
+        let recovered = utils::recover_signer(&digest, &sig_65).unwrap();
+        assert_eq!(recovered, signer_pubkey);
+    }
+
+    #[test]
     fn split_agent_route_has_zero_fees() {
         let profile = RouteProfile::AGENT;
         let (m, t, i) = utils::split_gross(1_000_000, &profile).unwrap();
