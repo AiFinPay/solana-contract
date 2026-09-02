@@ -72,6 +72,19 @@ pub fn handle_settle_stable<'a>(
     let remaining = ctx.remaining_accounts;
     require!(remaining.len() >= 3, ErrorCode::UnsupportedToken);
 
+    // Validate that remaining accounts are distinct from each other and from the payer.
+    let payer_key = ctx.accounts.payer.key();
+    for (i, account_i) in remaining.iter().enumerate() {
+        let key_i = account_i.key();
+        require!(key_i != payer_key, ErrorCode::DuplicateSettlementAccount);
+        for account_j in remaining.iter().skip(i + 1) {
+            require!(
+                key_i != account_j.key(),
+                ErrorCode::DuplicateSettlementAccount
+            );
+        }
+    }
+
     let mint = ctx.accounts.mint.key();
     let token_program = ctx.accounts.token_program.key();
 

@@ -14,6 +14,14 @@ pub enum ErrorCode {
     SignatureExpired,
     #[msg("Quote payer must match transaction signer")]
     InvalidPayer,
+    #[msg("Quote merchant must match the provided merchant account")]
+    MerchantMismatch,
+    #[msg("Provided treasury account does not match the protocol treasury")]
+    TreasuryMismatch,
+    #[msg("IP creator account does not match the quote")]
+    IPCreatorMismatch,
+    #[msg("Settlement accounts must be distinct from the payer and from each other")]
+    DuplicateSettlementAccount,
     #[msg("Quote nonce does not match payer nonce")]
     InvalidNonce,
     #[msg("Quote nonce has already been consumed")]

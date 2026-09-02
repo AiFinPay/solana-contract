@@ -77,12 +77,18 @@ upgrade:
 ## Deployment-critical placeholders
 
 Two constants in `constants.rs` are intentionally placeholder values and
-**must** be replaced before mainnet deployment:
+**must** be replaced before mainnet deployment. The current placeholders are
+syntactically valid (so the program compiles and tests can run), but they are
+not safe for production:
 
-1. `PROTOCOL_TREASURY` — currently set to the system program address. This
-   must be a real protocol-owned wallet.
-2. `INITIAL_SIGNER` — currently a non-curve placeholder (`0x01…||0x02…`).
-   This must be a valid secp256k1 uncompressed public key.
+1. `PROTOCOL_TREASURY` — currently set to `Pubkey::new_from_array([0xAF; 32])`,
+   a non-real placeholder. This must be replaced with a real protocol-owned
+   wallet before mainnet deployment. Any treasury fees sent to the placeholder
+   would be lost.
+2. `INITIAL_SIGNER` — currently set to the secp256k1 generator point G
+   (private key = 1), a publicly known placeholder. This must be replaced with
+   the deployer's own bootstrap secp256k1 uncompressed public key before
+   mainnet deployment.
 
 Do not deploy to mainnet without replacing both and re-running tests + an
 audit.
