@@ -3,9 +3,9 @@
 		"test:ts": "tsc && mocha target/tests/**/*.js",
 		"test:ts:localnet": "ANCHOR_PROVIDER_URL=http://localhost:8899 ANCHOR_WALLET=~/.config/solana/id.json mocha target/tests/**/*.js",
 		"check:devnet": "node target/scripts/check-devnet-splitter.js",
-		"build:check-devnet": "tsc scripts/check-devnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --outDir target/scripts",
+		"build:check-devnet": "tsc scripts/check-devnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
 		"initialize:devnet": "node target/scripts/initialize-devnet-splitter.js",
-		"build:initialize-devnet": "tsc scripts/initialize-devnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --outDir target/scripts"
+		"build:initialize-devnet": "tsc scripts/initialize-devnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts"
 	},
 	"devDependencies": {
 		"@coral-xyz/anchor": "^0.32.1",

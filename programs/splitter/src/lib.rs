@@ -11,7 +11,7 @@ pub use instructions::*;
 pub use state::*;
 pub use utils::*;
 
-declare_id!("56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr");
+declare_id!("BrKrKkmuvBZMxrKGrMQdHtKMmw6Sfzvk9xi5P1vLMv5c");
 
 #[program]
 pub mod splitter {

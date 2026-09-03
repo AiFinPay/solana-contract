@@ -1,7 +1,33 @@
 #!/usr/bin/env node
 
-import * as anchor from "@coral-xyz/anchor";
-import { Connection, PublicKey, Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
+import {
+  address,
+  AccountRole,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createKeyPairSignerFromBytes,
+  getProgramDerivedAddress,
+  appendTransactionMessageInstruction,
+  createTransactionMessage,
+  pipe,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  sendAndConfirmTransactionFactory,
+  getSignatureFromTransaction,
+  type Instruction,
+  type TransactionSigner,
+} from "@solana/kit";
+import { PublicKey } from "@solana/web3.js";
+import {
+  struct,
+  u8,
+  u16,
+  publicKey,
+  vec,
+  array,
+  bool,
+} from "@coral-xyz/borsh";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -22,17 +48,17 @@ function loadEnvFile(envPath: string) {
   });
 }
 
-const ROOT = path.join(__dirname, "..");
+const ROOT = path.join(__dirname, "..", "..");
 loadEnvFile(path.join(ROOT, ".env"));
 loadEnvFile(path.join(ROOT, ".env.local"));
 
 // ---------------------------------------------------------------------------
 // Constants (must match programs/splitter/src/constants.rs)
 // ---------------------------------------------------------------------------
-const PROGRAM_ID = new PublicKey("56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr");
-const CONFIG_SEED = Buffer.from("config");
-const TOKEN_LIST_SEED = Buffer.from("token-list");
-const PROFILES_INDEX_SEED = Buffer.from("profiles-index");
+const PROGRAM_ID = address("BrKrKkmuvBZMxrKGrMQdHtKMmw6Sfzvk9xi5P1vLMv5c");
+const CONFIG_SEED = new TextEncoder().encode("config");
+const TOKEN_LIST_SEED = new TextEncoder().encode("token-list");
+const PROFILES_INDEX_SEED = new TextEncoder().encode("profiles-index");
 
 const ROUTE_AGENT_X402 = new Uint8Array([
   0x8d, 0xc5, 0x05, 0xbe, 0x33, 0x5e, 0x56, 0x5d, 0x2a, 0x5e, 0x2c, 0x96, 0x05, 0x7c, 0x7f, 0xb0,
@@ -44,40 +70,48 @@ const ROUTE_MERCHANT_AIFP1 = new Uint8Array([
   0x7f, 0x53, 0xeb, 0x19, 0xd7, 0x8a, 0x57, 0x3a, 0xbf, 0x94, 0xfc, 0x38, 0x4a, 0x33, 0x9a, 0x89,
 ]);
 
+// Anchor instruction discriminator for "global:initialize"
+const INITIALIZE_DISCRIMINATOR = new Uint8Array([175, 175, 109, 31, 13, 152, 155, 237]);
+
+// System program
+const SYSTEM_PROGRAM = address("11111111111111111111111111111111");
+
+// ---------------------------------------------------------------------------
+// Borsh schema — must match InitializeParams in initialize.rs exactly
+// ---------------------------------------------------------------------------
+const InitializeParamsLayout = struct([
+  publicKey("admin"),
+  array(u8(), 64, "signer"),
+  publicKey("pauser"),
+  publicKey("treasury"),
+  vec(publicKey(), "stablecoins"),
+  vec(array(u8(), 32), "route_ids"),
+  vec(u16(), "treasury_bps"),
+  vec(u16(), "ip_creator_bps"),
+]);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function parsePubkey(name: string, value: string | undefined): PublicKey {
+function parsePubkey(name: string, value: string | undefined): string {
   if (!value) throw new Error(`Missing env var: ${name}`);
   try {
-    return new PublicKey(value);
+    address(value);
+    return value;
   } catch {
     throw new Error(`Invalid pubkey for ${name}: ${value}`);
   }
 }
 
-function parseHexBytes32(name: string, value: string | undefined): Uint8Array {
-  if (!value) throw new Error(`Missing env var: ${name}`);
-  const clean = value.replace(/^0x/, "");
-  if (clean.length !== 64) {
-    throw new Error(`${name} must be 32 bytes (64 hex chars), got ${clean.length}`);
-  }
-  const bytes = new Uint8Array(32);
-  for (let i = 0; i < 32; i++) {
-    bytes[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-function parseHexBytes64(name: string, value: string | undefined): Uint8Array {
+function parseHexBytes64(name: string, value: string | undefined): number[] {
   if (!value) throw new Error(`Missing env var: ${name}`);
   const clean = value.replace(/^0x/, "");
   if (clean.length !== 128) {
     throw new Error(`${name} must be 64 bytes (128 hex chars), got ${clean.length}`);
   }
-  const bytes = new Uint8Array(64);
+  const bytes: number[] = [];
   for (let i = 0; i < 64; i++) {
-    bytes[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+    bytes.push(parseInt(clean.slice(i * 2, i * 2 + 2), 16));
   }
   return bytes;
 }
@@ -91,7 +125,7 @@ function parseU16(name: string, value: string | undefined): number {
   return parsed;
 }
 
-function parsePubkeyArray(name: string, value: string | undefined): PublicKey[] {
+function parsePubkeyArray(name: string, value: string | undefined): string[] {
   if (!value || value.trim() === "") return [];
   return value.split(",").map(s => parsePubkey(name, s.trim()));
 }
@@ -105,12 +139,12 @@ function parseU16Array(name: string, value: string | undefined): number[] {
 // Main
 // ---------------------------------------------------------------------------
 async function main() {
-  console.log("=== AiFinPay Splitter v1.4 — Initialize ===\n");
+  console.log("=== AiFinPay Splitter v1.4 — Initialize (borsh) ===\n");
 
   // --- Parse env vars ---
   const deployerKeypairPath = process.env.DEPLOYER_KEYPAIR_PATH || "keypairs/devnet-deployer.json";
   const admin = parsePubkey("ADMIN_PUBKEY", process.env.ADMIN_PUBKEY);
-  const signer = parseHexBytes64("SIGNER_PUBKEY", process.env.SIGNER_PUBKEY);
+  const signerBytes = parseHexBytes64("SIGNER_PUBKEY", process.env.SIGNER_PUBKEY);
   const pauser = parsePubkey("PAUSER_PUBKEY", process.env.PAUSER_PUBKEY);
   const treasury = parsePubkey("TREASURY_PUBKEY", process.env.TREASURY_PUBKEY);
   const stablecoins = parsePubkeyArray("STABLECOINS", process.env.STABLECOINS);
@@ -135,36 +169,49 @@ async function main() {
   const resolvedKeypairPath = path.resolve(deployerKeypairPath);
   console.log(`Deployer keypair: ${resolvedKeypairPath}`);
   if (!fs.existsSync(resolvedKeypairPath)) {
-    throw new Error(`Keypair file not found: ${resolvedKeypairPath}\nGenerate with: solana-keygen new --no-passphrase -s -o ${resolvedKeypairPath}`);
+    throw new Error(`Keypair file not found: ${resolvedKeypairPath}`);
   }
   const secret = JSON.parse(fs.readFileSync(resolvedKeypairPath, "utf-8"));
-  const deployer = Keypair.fromSecretKey(new Uint8Array(secret));
-  console.log(`Deployer pubkey:  ${deployer.publicKey.toBase58()}\n`);
+  const signer = await createKeyPairSignerFromBytes(new Uint8Array(secret));
+  console.log(`Deployer pubkey:  ${signer.address}\n`);
 
-  // --- Connection & balance ---
+  // --- RPC ---
   const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
-  const connection = new Connection(rpcUrl, "confirmed");
+  const wsUrl = rpcUrl.replace("https://", "wss://").replace("http://", "ws://");
+  const rpc = createSolanaRpc(rpcUrl);
+  const rpcSubscriptions = createSolanaRpcSubscriptions(wsUrl);
 
-  const balance = await connection.getBalance(deployer.publicKey);
-  console.log(`Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
-  if (balance < 0.5 * LAMPORTS_PER_SOL) {
-    console.warn("⚠  Low balance — you may need more SOL for rent exemption.\n");
+  // --- Balance ---
+  const { value: balance } = await rpc.getBalance(signer.address).send();
+  const solBalance = Number(balance) / 1_000_000_000;
+  console.log(`Balance: ${solBalance} SOL`);
+  if (solBalance < 0.5) {
+    console.warn("Low balance — you may need more SOL for rent exemption.\n");
   }
 
   // --- Derive PDAs ---
-  const [configPDA] = PublicKey.findProgramAddressSync([CONFIG_SEED], PROGRAM_ID);
-  const [tokenListPDA] = PublicKey.findProgramAddressSync([TOKEN_LIST_SEED], PROGRAM_ID);
-  const [profilesIndexPDA] = PublicKey.findProgramAddressSync([PROFILES_INDEX_SEED], PROGRAM_ID);
+  const [configPDA] = await getProgramDerivedAddress({
+    programAddress: PROGRAM_ID,
+    seeds: [CONFIG_SEED],
+  });
+  const [tokenListPDA] = await getProgramDerivedAddress({
+    programAddress: PROGRAM_ID,
+    seeds: [TOKEN_LIST_SEED],
+  });
+  const [profilesIndexPDA] = await getProgramDerivedAddress({
+    programAddress: PROGRAM_ID,
+    seeds: [PROFILES_INDEX_SEED],
+  });
 
   console.log("PDAs:");
-  console.log(`  Config:       ${configPDA.toBase58()}`);
-  console.log(`  TokenList:    ${tokenListPDA.toBase58()}`);
-  console.log(`  ProfilesIndex: ${profilesIndexPDA.toBase58()}\n`);
+  console.log(`  Config:        ${configPDA}`);
+  console.log(`  TokenList:     ${tokenListPDA}`);
+  console.log(`  ProfilesIndex: ${profilesIndexPDA}\n`);
 
   // --- Check if already initialized ---
-  const existingConfig = await connection.getAccountInfo(configPDA, "confirmed");
+  const { value: existingConfig } = await rpc.getAccountInfo(configPDA, { encoding: "base64" }).send();
   if (existingConfig) {
-    console.log("⚠  Config PDA already exists — program may be initialized.");
+    console.log("Config PDA already exists — program may be initialized.");
     const readline = require("readline").createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise<string>(resolve =>
       readline.question("Continue anyway? (y/N): ", (ans: string) => { readline.close(); resolve(ans); })
@@ -175,74 +222,73 @@ async function main() {
     }
   }
 
-  // --- Build Anchor provider & program ---
-  const wallet = new anchor.Wallet(deployer);
-  const provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
-  anchor.setProvider(provider);
+  // --- Borsh-serialize InitializeParams ---
+  const params = {
+    admin: new PublicKey(admin),
+    signer: signerBytes,
+    pauser: new PublicKey(pauser),
+    treasury: new PublicKey(treasury),
+    stablecoins: stablecoins.map(s => new PublicKey(s)),
+    route_ids: routeIds.map(r => Array.from(r)),
+    treasury_bps: treasuryBps,
+    ip_creator_bps: ipCreatorBps,
+  };
 
-  const idlPath = path.join(ROOT, "target", "idl", "splitter.json");
-  if (!fs.existsSync(idlPath)) {
-    throw new Error(`IDL not found at ${idlPath}\nRun 'anchor build' first.`);
-  }
-  const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
-  const program = new anchor.Program(idl, provider);
+  const maxParamsSize = 4 + 64 + 4 + 32 * 3 + 4 + 32 * 2 + 4 + 2 * 2 + 4 + 32 + 200;
+  const paramsBuffer = Buffer.alloc(maxParamsSize);
+  const written = InitializeParamsLayout.encode(params, paramsBuffer);
+  const paramsSlice = paramsBuffer.subarray(0, written);
 
-  // --- Send initialize transaction ---
+  const instructionData = Buffer.concat([Buffer.from(INITIALIZE_DISCRIMINATOR), paramsSlice]);
+  console.log(`Instruction data length: ${instructionData.length} bytes`);
+  console.log(`Instruction data hex: ${instructionData.toString("hex").slice(0, 80)}...`);
+
+  // --- Build instruction ---
+  const initInstruction: Instruction = {
+    programAddress: PROGRAM_ID,
+    accounts: [
+      { address: signer.address, role: AccountRole.WRITABLE_SIGNER },
+      { address: configPDA, role: AccountRole.WRITABLE },
+      { address: tokenListPDA, role: AccountRole.WRITABLE },
+      { address: profilesIndexPDA, role: AccountRole.WRITABLE },
+      { address: SYSTEM_PROGRAM, role: AccountRole.READONLY },
+    ],
+    data: new Uint8Array(instructionData),
+  };
+
+  // --- Build and send transaction ---
   console.log("Sending initialize transaction...");
 
-  try {
-    const tx = await program.methods
-      .initialize({
-        admin,
-        signer: Array.from(signer),
-        pauser,
-        treasury,
-        stablecoins,
-        routeIds: routeIds.map(arr => Array.from(arr)),
-        treasuryBps,
-        ipCreatorBps,
-      })
-      .accounts({
-        payer: deployer.publicKey,
-        config: configPDA,
-        tokenList: tokenListPDA,
-        profiles: profilesIndexPDA,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc();
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 
-    console.log(`✅ Transaction sent: ${tx}`);
-    console.log(`   Explorer: https://explorer.solana.com/tx/${tx}?cluster=devnet\n`);
+  const transactionMessage = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(signer, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstruction(initInstruction, tx),
+  );
 
-    // --- Verify ---
-    console.log("Verifying initialization...");
-    await new Promise(r => setTimeout(r, 3000));
+  const signedTransaction = await signTransactionMessageWithSigners(transactionMessage);
+  const txSignature = getSignatureFromTransaction(signedTransaction);
 
-    const configAccount = await connection.getAccountInfo(configPDA, "confirmed");
-    const tokenListAccount = await connection.getAccountInfo(tokenListPDA, "confirmed");
-    const profilesAccount = await connection.getAccountInfo(profilesIndexPDA, "confirmed");
+  const sendAndConfirm = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions });
+  await sendAndConfirm(signedTransaction as any, { commitment: "confirmed" });
 
-    const results = [
-      ["Config", configAccount],
-      ["TokenList", tokenListAccount],
-      ["ProfilesIndex", profilesAccount],
-    ] as const;
+  console.log(`Transaction sent: ${txSignature}`);
+  console.log(`Explorer: https://explorer.solana.com/tx/${txSignature}?cluster=devnet\n`);
 
-    for (const [name, acct] of results) {
-      console.log(`  ${acct ? "✅" : "⚠"} ${name} PDA ${acct ? "created" : "not yet visible"}`);
-    }
+  // --- Verify ---
+  console.log("Verifying initialization...");
+  const { value: configAccount } = await rpc.getAccountInfo(configPDA, { encoding: "base64" }).send();
+  const { value: tokenListAccount } = await rpc.getAccountInfo(tokenListPDA, { encoding: "base64" }).send();
+  const { value: profilesAccount } = await rpc.getAccountInfo(profilesIndexPDA, { encoding: "base64" }).send();
 
-    console.log("\n🎉 Initialization complete!");
-    console.log("Run 'npm run check:devnet' to verify full setup.");
+  console.log(`  ${configAccount ? "OK" : "WARN"} Config PDA ${configAccount ? "created" : "not yet visible"}`);
+  console.log(`  ${tokenListAccount ? "OK" : "WARN"} TokenList PDA ${tokenListAccount ? "created" : "not yet visible"}`);
+  console.log(`  ${profilesAccount ? "OK" : "WARN"} ProfilesIndex PDA ${profilesAccount ? "created" : "not yet visible"}`);
 
-  } catch (error: any) {
-    console.error(`❌ Initialize failed: ${error.message}`);
-    if (error.logs) {
-      console.error("Transaction logs:");
-      error.logs.forEach((log: string) => console.error(`  ${log}`));
-    }
-    process.exit(1);
-  }
+  console.log("\nInitialization complete!");
+  console.log("Run 'npm run check:devnet' to verify full setup.");
 }
 
 main().catch(err => {

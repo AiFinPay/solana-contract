@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 
-import * as anchor from "@coral-xyz/anchor";
-import { Connection, PublicKey, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import * as fs from "fs";
-import * as path from "path";
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 // Constants from the program
-const PROGRAM_ID = new PublicKey("56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr");
+const PROGRAM_ID = new PublicKey("BrKrKkmuvBZMxrKGrMQdHtKMmw6Sfzvk9xi5P1vLMv5c");
 const CONFIG_SEED = Buffer.from("config");
 const TOKEN_LIST_SEED = Buffer.from("token-list");
 const PROFILES_INDEX_SEED = Buffer.from("profiles-index");
