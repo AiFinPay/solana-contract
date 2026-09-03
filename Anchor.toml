@@ -17,5 +17,6 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "cargo test"
+test_ts = "pnpm exec ts-mocha -p tsconfig.json tests/**/*.test.ts"
 
 [hooks]

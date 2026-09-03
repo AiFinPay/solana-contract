@@ -1,3 +1,5 @@
 allowBuilds:
   '@daochild/agents-config': false
+  bufferutil: false
   msgpackr-extract: false
+  utf-8-validate: false

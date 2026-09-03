@@ -64,27 +64,12 @@ impl RouteProfile {
     }
 }
 
-/// Compute the Solana-native signed message hash for a Quote.
-///
-/// This is NOT EIP-712. It uses:
-/// - a versioned domain tag (not keccak),
-/// - the Solana program_id as the domain,
-/// - Borsh serialization of `Quote`,
-/// - SHA-256 (Solana's native hash function).
-///
-/// Off-chain signers must implement the same construction.
 pub fn quote_message_hash(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
     let mut quote_bytes = Vec::with_capacity(256);
     quote
         .serialize(&mut quote_bytes)
         .expect("Quote serialization failed");
     solana_program::hash::hashv(&[MESSAGE_DOMAIN_TAG, program_id.as_ref(), &quote_bytes]).to_bytes()
-}
-
-/// Canonical digest exposed for tests and off-chain signing compatibility.
-/// Alias for [`quote_message_hash`].
-pub fn digest(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
-    quote_message_hash(program_id, quote)
 }
 
 /// Recover the secp256k1 public key from a 65-byte Ethereum-style signature.
@@ -138,7 +123,7 @@ pub fn verify_quote_core(
 ) -> Result<RouteProfile> {
     let clock = Clock::get()?;
 
-    let digest = digest(&crate::ID, quote);
+    let digest = quote_message_hash(&crate::ID, quote);
     let recovered = recover_signer(&digest, signature)?;
     require!(config.signer != [0u8; 64], ErrorCode::InvalidSigner);
     require!(recovered == config.signer, ErrorCode::InvalidSigner);
