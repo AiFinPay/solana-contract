@@ -8,8 +8,12 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-splitter = "G6neYBZe8AzMvNPcewBhmzLao4CtZqc2uPVzPQBbAdrT"
+splitter = "56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr"
 splitter_light = "7vGTUXSmooih99MuzQELyaeFeZmuo4QcstS7T9Jv7yyR"
+
+[programs.devnet]
+splitter = "56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr"
+
 
 [provider]
 cluster = "localnet"

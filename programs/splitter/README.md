@@ -6,7 +6,7 @@ This is the Solana counterpart of the AiFinPay EVM splitter v1.4.
 ## Program ID
 
 ```
-G6neYBZe8AzMvNPcewBhmzLao4CtZqc2uPVzPQBbAdrT
+56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr
 ```
 
 ## What it does

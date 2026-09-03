@@ -20,7 +20,7 @@ cargo build-sbf --package splitter
 
 - Name: `splitter`
 - Version: `1.4.0`
-- Program ID: `G6neYBZe8AzMvNPcewBhmzLao4CtZqc2uPVzPQBbAdrT`
+- Program ID: `56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr`
 - Crate type: `cdylib + lib`
 
 ## Source layout
