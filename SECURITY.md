@@ -29,7 +29,7 @@ unless anonymity is requested.
 |------------|------------------------------------------------------------------|-------------|
 | `admin`    | Rotate roles, edit token list, edit routes, set treasury, pause  | Trusted     |
 | `pauser`   | Pause the program                                                | Semi-trusted |
-| `signer`   | Sign EIP-712-style quotes (secp256k1)                            | Trusted     |
+| `signer`   | Sign chain-specific digests over the canonical `Quote` (secp256k1) | Trusted     |
 | `payer`    | Submit signed settlements                                        | Untrusted   |
 | `merchant` | Receive the merchant leg                                          | Untrusted   |
 | `ip_creator` | Receive the royalty leg                                       | Untrusted   |
@@ -38,6 +38,11 @@ The protocol assumes `admin`, `pauser`, and `signer` keys are held in
 distinct HSMs / cold wallets operated by independent parties. Compromise
 of two of the three is required for catastrophic damage; loss of any
 single key is recoverable via rotation.
+
+`splitter_light` is an exception: it has no `admin` or `pauser`. The only
+privileged role is the secp256k1 `signer`, which can rotate itself via ECDSA
+signatures over a binding digest. Loss or compromise of that key is
+irrecoverable on-chain; see `programs/splitter_light/AGENTS.md`.
 
 ### Out of scope
 
@@ -70,7 +75,10 @@ These properties are checked by `cargo test` and MUST remain green:
    pairwise distinct.
 6. **Pause enforcement** — `settle_native` and `settle_stable` reject
    while `is_paused`.
-7. **Cross-chain digest parity** — Solana digest matches EVM v1.4.
+7. **Cross-chain quote parity** — the `Quote` schema, route IDs, and fee
+   caps match EVM v1.4. The digest construction is chain-specific (SHA-256 /
+   Borsh / `program_id` on Solana; EIP-712 / keccak256 on EVM) — see
+   ADR-0002.
 
 ## Operational Security
 
@@ -86,6 +94,8 @@ These properties are checked by `cargo test` and MUST remain green:
 
 ### Deployment checklist
 
+#### `splitter`
+
 1. `cargo build-sbf` produces `target/deploy/splitter.so`. Verify the
    file size matches the previous release within ±5%.
 2. Verify the declared program ID matches `G6neYBZe8AzMvNPcewBhmzLao4CtZqc2uPVzPQBbAdrT`.
@@ -94,6 +104,18 @@ These properties are checked by `cargo test` and MUST remain green:
    multi-sig.
 5. Confirm `quote_total` returns the expected splits for a dry-run quote
    before opening the program to live traffic.
+
+#### `splitter_light`
+
+1. `cargo build-sbf --package splitter_light` produces
+   `target/deploy/splitter_light.so`.
+2. Verify the declared program ID matches
+   `7vGTUXSmooih99MuzQELyaeFeZmuo4QcstS7T9Jv7yyR`.
+3. Replace `PROTOCOL_TREASURY` and `INITIAL_SIGNER` placeholders with real
+   mainnet values before building.
+4. Run `set_signer` once from the bootstrap `INITIAL_SIGNER` key to install
+   the operational signer.
+5. Confirm a dry-run `settle_native` quote returns the expected splits.
 
 ### Incident response
 
@@ -115,6 +137,16 @@ recent audit report.
 If you are running a fork of this code, you are responsible for your own
 audit trail. See `CONTRIBUTING.md` for the review expectations that apply
 to changes in this repo.
+
+### Key handling for `splitter_light`
+
+- The `INITIAL_SIGNER` placeholder in `constants.rs` is the secp256k1
+  generator point (private key = 1). It is **only** safe for local testing.
+- Before mainnet, replace `INITIAL_SIGNER` with the deployer's own
+  uncompressed secp256k1 public key and replace `PROTOCOL_TREASURY` with a
+  real protocol wallet.
+- After deployment, immediately call `set_signer` to rotate away from the
+  bootstrap key.
 
 ## Safe Integer Math
 

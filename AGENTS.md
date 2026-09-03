@@ -1,6 +1,12 @@
 # Solana Contract
 
-Primary instructions: node_modules/@daochild/agents-config/AGENTS.md — read in full and follow unless overridden below.
+Primary instructions: node_modules/@daochild/agents-config/AGENTS.md — read in
+full and follow unless overridden below.
+
+When this repository is opened with **opencode**, also read
+[`.opencode/AGENTS.md`](./.opencode/AGENTS.md) for opencode-specific workflow,
+permission, and security instructions. In case of conflict, the opencode file
+overrides this file.
 
 Anchor/Sealevel Solana program (v1.4) for signed, multi-route gross settlement.
 
@@ -25,7 +31,7 @@ All CI steps run from the repo root (workspace-level):
 ## Project Structure
 
 ```
-programs/splitter/     # Full-featured Anchor program (cdylib + lib)
+programs/splitter/     # Full-featured canonical Anchor program (cdylib + lib)
   AGENTS.md           # Program-level agent instructions
   README.md           # Program-level quick reference
   src/
@@ -36,11 +42,7 @@ programs/splitter/     # Full-featured Anchor program (cdylib + lib)
     error.rs          # Error codes
     utils.rs          # quote_hash, split_gross, ecrecover helpers
   tests/              # litesvm integration tests
-programs/splitter_light/   # Minimal hardcoded variant
-  AGENTS.md           # Program-level agent instructions
-  README.md           # Program-level quick reference
-  src/                # Same module layout
-scripts/              # Empty (no scripts yet)
+scripts/              # Deployment / utility scripts
 ```
 
 ## Architecture Notes
@@ -51,10 +53,9 @@ scripts/              # Empty (no scripts yet)
 - Tests use `litesvm` (Solana program unit test framework), NOT Anchor's JS test harness
 - Route IDs (ROUTE_AGENT_X402, ROUTE_MERCHANT_AIFP1) are hardcoded constants that must match EVM v1.4
 - Signer role uses secp256k1 ecrecover (solana-secp256k1-recover, solana-keccak-hasher)
-- Two programs now live under `programs/`: `splitter` (full) and `splitter_light` (minimal)
-- See per-program `AGENTS.md` for program-specific rules:
-  - [`programs/splitter/AGENTS.md`](./programs/splitter/AGENTS.md)
-  - [`programs/splitter_light/AGENTS.md`](./programs/splitter_light/AGENTS.md)
+- Only the canonical `splitter` program lives under `programs/`.
+- See [`programs/splitter/AGENTS.md`](./programs/splitter/AGENTS.md) for
+  program-specific rules.
 
 ## Key Constraints
 

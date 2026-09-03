@@ -4,9 +4,7 @@ This file is the local, program-specific companion to the repo-level
 [`AGENTS.md`](../../AGENTS.md). It captures the rules and context that
 apply **only** when editing or auditing `programs/splitter/`.
 
-> Scope: this program is the full-featured AiFinPay Solana splitter v1.4.
-> For the minimal hardcoded variant, see
-> [`programs/splitter_light/AGENTS.md`](../splitter_light/AGENTS.md).
+> Scope: this program is the only supported AiFinPay Solana splitter v1.4.
 
 ## Dev commands (program scope)
 

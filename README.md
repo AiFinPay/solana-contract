@@ -44,16 +44,21 @@ The CI pipeline in `.github/workflows/ci.yml` runs all four checks
 
 ## Overview
 
-- Two Anchor **v1.1.2** programs:
-  - `programs/splitter/` — full-featured registry-based splitter.
-  - `programs/splitter_light/` — minimal hardcoded SOL + USDC/USDT variant.
-- Two settlement routes at v1.4:
-  - `ROUTE_AGENT_X402` — agent-to-agent, default fees 0 / 0 bps.
-  - `ROUTE_MERCHANT_AIFP1` — merchant, default fee 100 / 0 bps.
-- Fee caps: treasury ≤ 500 bps (5 %), IP creator ≤ 100 bps (1 %).
-- Signer verification via secp256k1 ecrecover (`solana-secpx256k1-recover`,
-  `solana-keccak-hasher`).
-- Tests use `litesvm`, not Anchor's JS harness.
+Two canonical Anchor **v1.1.2** programs:
+
+- `programs/splitter/` — full-featured registry-based splitter.
+- `programs/splitter_light/` — minimal hardcoded variant with no on-chain
+  admin or registry (same quote/split semantics, ECDSA-only signer rotation).
+
+Two settlement routes at v1.4:
+
+- `ROUTE_AGENT_X402` — agent-to-agent, default fees 0 / 0 bps.
+- `ROUTE_MERCHANT_AIFP1` — merchant, default fee 100 / 0 bps.
+
+Fee caps: treasury ≤ 500 bps (5 %), IP creator ≤ 100 bps (1 %).
+Signer verification via secp256k1 ecrecover (`solana-secpx256k1-recover`,
+`solana-keccak-hasher`).
+Tests use `litesvm`, not Anchor's JS harness.
 
 ## Documentation
 
@@ -70,34 +75,41 @@ The CI pipeline in `.github/workflows/ci.yml` runs all four checks
 - [`docs/adr/`](./docs/adr/) — Architecture Decision Records.
 - [`AGENTS.md`](./AGENTS.md) — agent / opencode instructions.
 - [`programs/splitter/README.md`](./programs/splitter/README.md) — full splitter program reference.
-- [`programs/splitter_light/README.md`](./programs/splitter_light/README.md) — light program reference.
+- [`programs/splitter_light/README.md`](./programs/splitter_light/README.md) — light splitter program reference.
 
 ## Repository Layout
 
 ```
 .
-├── programs/splitter/         # Full-featured Anchor program (cdylib + lib)
+├── programs/splitter/          # Full-featured Anchor program (cdylib + lib)
 │   ├── src/
-│   │   ├── lib.rs             # declare_id, #[program] entrypoints, inline tests
-│   │   ├── constants.rs       # EIP-712 fields, route IDs, seeds, caps
-│   │   ├── state.rs           # Config, TokenList, profiles, nonces, Quote
-│   │   ├── error.rs           # ErrorCode variants
-│   │   ├── utils.rs           # digest, recover_signer, split_gross, events
-│   │   └── instructions/      # one file per instruction handler
-│   ├── tests/test_initialize.rs   # litesvm integration test
+│   │   ├── lib.rs              # declare_id, #[program] entrypoints, inline tests
+│   │   ├── constants.rs        # EIP-712 fields, route IDs, seeds, caps
+│   │   ├── state.rs            # Config, TokenList, profiles, nonces, Quote
+│   │   ├── error.rs            # ErrorCode variants
+│   │   ├── utils.rs            # digest, recover_signer, split_gross, events
+│   │   └── instructions/       # one file per instruction handler
+│   ├── tests/test_initialize.rs    # litesvm integration test
 │   ├── Cargo.toml
-│   ├── AGENTS.md              # Program-level agent instructions
-│   └── README.md              # Program-level quick reference
-├── programs/splitter_light/   # Minimal hardcoded variant
-│   ├── src/                   # Same module layout
+│   ├── AGENTS.md               # Program-level agent instructions
+│   └── README.md               # Program-level quick reference
+├── programs/splitter_light/    # Minimal hardcoded variant (cdylib + lib)
+│   ├── src/
+│   │   ├── lib.rs              # declare_id, #[program] dispatch, inline tests
+│   │   ├── constants.rs        # route IDs, USDC/USDT mints, treasury, signer
+│   │   ├── state.rs            # Config, PayerNonce, ConsumedNonce, Quote
+│   │   ├── error.rs            # ErrorCode variants
+│   │   ├── utils.rs            # digest, recover_signer, split_gross, events
+│   │   ├── instructions.rs     # re-exports
+│   │   └── instructions/         # settle_native, settle_stable, set_signer
 │   ├── Cargo.toml
-│   ├── AGENTS.md              # Program-level agent instructions
-│   └── README.md              # Program-level quick reference
-├── docs/                      # Business logic, implementation status, ADRs
-├── .github/workflows/ci.yml   # fmt + test + clippy + build-sbf
-├── Anchor.toml                # `skip_local_validator = true`
-├── Cargo.toml                 # workspace root
-└── rust-toolchain.toml        # pins Rust 1.89.0
+│   ├── AGENTS.md               # Program-level agent instructions
+│   └── README.md               # Program-level quick reference
+├── docs/                       # Business logic, implementation status, ADRs
+├── .github/workflows/ci.yml    # fmt + test + clippy + build-sbf
+├── Anchor.toml                 # `skip_local_validator = true`
+├── Cargo.toml                  # workspace root
+└── rust-toolchain.toml         # pins Rust 1.89.0
 ```
 
 ## Cross-Chain Parity

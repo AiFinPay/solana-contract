@@ -79,13 +79,15 @@ pub struct Quote {
 }
 ```
 
-The digest is EIP-712-style:
+The digest is Solana-native and program-bound:
 
 ```
-digest = keccak256(0x19 || 0x01 || domain_separator || quote_hash)
+digest = SHA-256(b"AiFinPay-Solana-v1.4" || program_id || Borsh(Quote))
 ```
 
-Signature layout: `r (32) || s (32) || v (1)`.
+The secp256k1 signature layout is `r (32) || s (32) || v (1)`. The same
+signer key pair is used on EVM, but the signed digest bytes differ by chain
+because EVM uses EIP-712 / keccak256. See `docs/adr/0002-digest-binding.md`.
 
 ## Routes
 
@@ -106,7 +108,8 @@ Fee caps: treasury ≤ 500 bps (5%), IP creator ≤ 100 bps (1%).
 
 ## Cross-chain parity
 
-This program is byte-compatible with the EVM v1.4 deployment. Sacred
-constants include the EIP-712 name/version/typehashes, route IDs, fee
-caps, and the order of fields inside `quote_hash()`. See
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md#7-cross-chain-parity-is-sacred).
+This program shares the quote schema, route IDs, fee caps, and settlement
+semantics with the EVM v1.4 deployment. The digest and event `payment_id`
+hash are chain-specific (SHA-256 on Solana, keccak256 on EVM). See
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#7-cross-chain-parity-is-sacred) and
+ADR-0002.

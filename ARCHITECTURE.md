@@ -2,15 +2,24 @@
 
 ## 1. Purpose
 
-The `splitter` program is the **Solana counterpart** of the AiFinPay B2B payment
-splitter v1.4. It accepts signed payment quotes, splits the gross amount into a
-merchant leg, an optional protocol-treasury leg, and an optional IP-creator
-royalty leg, and atomically credits the three legs in a single transaction.
+The `splitter` and `splitter_light` programs are the **Solana counterparts**
+of the AiFinPay B2B payment splitter v1.4. They accept signed payment quotes,
+split the gross amount into a merchant leg, an optional protocol-treasury leg,
+and an optional IP-creator royalty leg, and atomically credit the three legs
+in a single transaction.
+
+This document primarily describes the full `splitter` program. The light
+variant is documented in [`programs/splitter_light/README.md`](./programs/splitter_light/README.md);
+it keeps the same settlement semantics but removes the on-chain admin, pauser,
+registry, and route-configuration instructions in favor of hardcoded constants
+and ECDSA-only signer rotation.
 
 Cross-chain design constraint: **the on-chain payment semantics, route
-identifiers, fee caps, and EIP-712-style digest MUST match the EVM v1.4
+identifiers, fee caps, and quote field order MUST match the EVM v1.4
 contract exactly.** Wallets, off-chain relayers, and payment APIs rely on a
-single quote schema being valid on both chains.
+single quote schema being valid on both chains. The final digest bytes are
+chain-specific (EIP-712 / keccak256 on EVM, SHA-256 / Borsh / program-bound
+on Solana); see ADR-0002.
 
 ## 2. High-Level Architecture
 
@@ -31,9 +40,10 @@ single quote schema being valid on both chains.
               │                        │                        │
               ▼                        ▼                        ▼
    ┌──────────────────────────────────────────────────────────────────┐
-   │                          Core verifier                            │
-   │   digest() → recover_signer() → verify_quote_core() → split_gross()│
-   └──────────────────────────────────────────────────────────────────┘
+│                          Core verifier                            │
+│   quote_message_hash() → recover_signer() → verify_quote_core()  │
+│                          → split_gross()                          │
+└──────────────────────────────────────────────────────────────────┘
               │                        │
               ▼                        ▼
    ┌─────────────────────┐  ┌─────────────────────┐
@@ -75,20 +85,6 @@ programs/splitter/
     ├── set_whitelisted_tokens.rs  # admin edits SPL whitelist
     └── grant_*_role / rotate_*_role  # admin rotates signer & pauser
 
-programs/splitter_light/
-├── AGENTS.md              # Program-level agent instructions
-├── README.md              # Program-level quick reference
-└── src/                   # Same module layout (minimal hardcoded variant)
-    ├── lib.rs
-    ├── constants.rs
-    ├── state.rs
-    ├── error.rs
-    ├── utils.rs
-    ├── instructions.rs
-    └── instructions/
-        ├── settle_native.rs
-        ├── settle_stable.rs
-        └── set_signer.rs
 ```
 
 ## 4. On-Chain State
@@ -165,21 +161,17 @@ nonce           u64       // payer-monotonic
 route_id        [u8; 32]  // keccak256 of route name
 ```
 
-The digest is built exactly like the EVM v1.4 contract:
+The digest is Solana-native and program-bound (see ADR-0002):
 
 ```
-prefix  = 0x19 0x01
-domain  = keccak256( DOMAIN_TYPEHASH || keccak256(EIP712_NAME)
-                                  || keccak256(EIP712_VERSION)
-                                  || program_id )
-qhash   = keccak256( QUOTE_TYPEHASH || payer || merchant || token ||
-                     gross_amount_le || ip_creator || valid_until_le ||
-                     order_id_hash || nonce_le || route_id )
-digest  = keccak256( prefix || domain || qhash )
+tag      = b"AiFinPay-Solana-v1.4"
+digest   = SHA-256( tag || program_id || Borsh(Quote) )
 ```
 
-The 65-byte signature is `r (32) || s (32) || v (1)`; `v - 27` is the
-secp256k1 recovery id passed to `solana_secp256k1_recover`.
+`Quote` is serialized with Anchor's `AnchorSerialize` derive in the field order
+shown above. The 65-byte signature is `r (32) || s (32) || v (1)`; `v - 27` is
+the secp256k1 recovery id passed to `solana_secp256k1_recover`. High-s
+signatures are rejected to match EIP-2 canonical signatures.
 
 ## 6. Settlement Flows
 
@@ -246,14 +238,20 @@ the resulting fee rounds down to zero.
 
 ## 9. Cross-Chain Parity (EVM v1.4)
 
-Items that must remain byte-identical across the EVM and Solana deployments:
+Items that must remain identical across the EVM and Solana deployments:
 
-- EIP-712 `name`, `version`, `DOMAIN_TYPEHASH`, `QUOTE_TYPEHASH`.
+- Quote field order and business meaning of each field.
 - `ROUTE_AGENT_X402` and `ROUTE_MERCHANT_AIFP1` (keccak256 of route names).
 - Fee caps.
 - Settlement semantics (gross → merchant + treasury + royalty).
 
-Changes to any of these require a coordinated upgrade of the EVM contract.
+Items that are intentionally chain-specific:
+
+- Digest construction (EIP-712 / keccak256 on EVM; SHA-256 / Borsh / program_id
+  on Solana) — see ADR-0002.
+- `payment_id` hash algorithm (keccak256 on EVM; SHA-256 on Solana).
+
+Changes to the shared items require a coordinated upgrade of the EVM contract.
 
 ## 10. Observability
 
@@ -275,9 +273,12 @@ indexers can deduplicate retries.
 ## 11. Build, Test, Deploy
 
 - Rust toolchain is pinned via `rust-toolchain.toml` to `1.89.0`.
-- `cargo test` runs the inline unit tests in `lib.rs` and the
-  `litesvm`-based integration test in `tests/test_initialize.rs`.
+- `cargo test` runs the inline unit tests in each program's `lib.rs` and the
+  `litesvm`-based integration test in `programs/splitter/tests/test_initialize.rs`.
 - `cargo build-sbf` is the deploy gate. It produces
-  `target/deploy/splitter.so`, which the test harness loads directly.
+  `target/deploy/splitter.so` and `target/deploy/splitter_light.so`.
+- Per-package commands are also available:
+  - `cargo test --package splitter_light`
+  - `cargo build-sbf --package splitter_light`
 - The CI pipeline in `.github/workflows/ci.yml` runs formatting, tests,
   clippy, and SBF build on every PR and push to `main` / `dev`.

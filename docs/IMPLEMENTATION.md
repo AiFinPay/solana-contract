@@ -4,6 +4,14 @@ This document tracks the **current state** of the AiFinPay Solana
 Splitter implementation against the v1.4 specification. It is updated
 each time a feature is delivered, refactored, or removed.
 
+Two programs are in scope:
+
+- `splitter` — full registry-based program under `programs/splitter/`.
+- `splitter_light` — minimal hardcoded program under `programs/splitter_light/`.
+  It mirrors the settlement surface of `splitter` but has no on-chain admin,
+  pauser, treasury registry, or route configuration. See
+  [`programs/splitter_light/README.md`](../programs/splitter_light/README.md).
+
 ## Status legend
 
 - ✅ Done — code shipped, tests passing, audit-ready.
@@ -12,6 +20,8 @@ each time a feature is delivered, refactored, or removed.
 - ❌ Removed — feature was removed; see git history.
 
 ## Instruction surface
+
+### `splitter`
 
 | Instruction             | Status | Handler file                            | Tests |
 |-------------------------|:-----:|------------------------------------------|-------|
@@ -30,13 +40,13 @@ each time a feature is delivered, refactored, or removed.
 | `grant_pauser_role`     |  ✅   | `instructions/grant_pauser_role.rs`      | — |
 | `rotate_pauser_role`    |  ✅   | `instructions/rotate_pauser_role.rs`     | — |
 
-### Light program (`splitter_light`)
+### `splitter_light`
 
-| Instruction     | Status | Handler file                       | Tests |
-|-----------------|:------:|-------------------------------------|-------|
-| `settle_native` |  ✅    | `instructions/settle_native.rs`    | inline helpers only |
-| `settle_stable` |  ✅    | `instructions/settle_stable.rs`    | inline helpers only |
-| `set_signer`    |  ✅    | `instructions/set_signer.rs`       | — |
+| Instruction     | Status | Handler file                          | Tests |
+|-----------------|:------:|---------------------------------------|-------|
+| `settle_native` |  ✅   | `instructions/settle_native.rs`       | inline helpers only |
+| `settle_stable` |  ✅   | `instructions/settle_stable.rs`       | inline helpers only |
+| `set_signer`    |  ✅   | `instructions/set_signer.rs`          | inline helpers only |
 
 ## State accounts
 
@@ -54,6 +64,9 @@ each time a feature is delivered, refactored, or removed.
 
 ## Cross-chain parity
 
+The following fields are shared between `splitter` and `splitter_light` and
+MUST match EVM v1.4.
+
 | Field                  | Status     | Notes                                  |
 |------------------------|:----------:|----------------------------------------|
 | `EIP712_NAME`          | ✅ match   | `AiFinPayB2BSplitter`                  |
@@ -64,6 +77,9 @@ each time a feature is delivered, refactored, or removed.
 | `ROUTE_MERCHANT_AIFP1` | ✅ match   | EVM v1.4 deployment                    |
 | `MAX_TREASURY_BPS`     | ✅ match   | 500                                    |
 | `MAX_IP_CREATOR_BPS`   | ✅ match   | 100                                    |
+
+`splitter_light` additionally hardcodes the same `USDC_MINT`, `USDT_MINT`,
+`MESSAGE_DOMAIN_TAG`, quote field order, and split math as `splitter`.
 
 ## CI
 
@@ -82,16 +98,14 @@ root level (`Cargo.toml` with `members = ["programs/*"]`).
 - [x] **CI working-directory** — `.github/workflows/ci.yml` was updated
       to run from the repo root; the workspace members live under
       `programs/`. Verify on next CI run.
-- [ ] **`splitter_light` integration tests** — add litesvm tests for
-      `settle_native`, `settle_stable`, and `set_signer`.
-- [ ] **`splitter_light` mainnet placeholders** — replace
-      `PROTOCOL_TREASURY` and `INITIAL_SIGNER` with real values before
-      deployment.
 - [ ] **Stable-settlement integration test** — only the `initialize`
       flow is covered by `litesvm` today. Add a positive and a negative
       `settle_stable` test once test keypairs are generated.
 - [ ] **Native-settlement integration test** — same as above; depends on
       a pre-generated secp256k1 keypair fixture.
+- [ ] **`splitter_light` litesvm tests** — currently only inline unit tests
+      exist. Add `programs/splitter_light/tests/` once secp256k1 fixtures are
+      ready.
 - [ ] **EIP-712 vector regression** — pin the byte-for-byte digest for a
       canonical quote and cross-check against the EVM v1.4 fixture.
 - [ ] **Audit report** — once `senior-solidity-auditor` /
@@ -99,6 +113,8 @@ root level (`Cargo.toml` with `members = ["programs/*"]`).
       `audits/`.
 
 ## Test coverage
+
+### `splitter`
 
 | Surface                            | Coverage | Notes                                |
 |------------------------------------|:--------:|--------------------------------------|
@@ -116,6 +132,23 @@ root level (`Cargo.toml` with `members = ["programs/*"]`).
 | `quote_total` view                 |   ⏳    |                                      |
 | Pause / unpause                    |   ⏳    |                                      |
 | Role rotation invariants           |   ⏳    |                                      |
+
+### `splitter_light`
+
+| Surface                            | Coverage | Notes                                |
+|------------------------------------|:--------:|--------------------------------------|
+| Route constant invariants          |   ✅     | inline test in `lib.rs`              |
+| Stablecoin constants               |   ✅     | inline test in `lib.rs`              |
+| `quote_message_hash` determinism   |   ✅     | inline test in `lib.rs`              |
+| secp256k1 recover — valid sig      |   ✅     | inline test in `lib.rs`              |
+| secp256k1 recover — tampered quote |   ✅     | inline test in `lib.rs`              |
+| `split_gross` — zero fees          |   ✅     | inline test in `lib.rs`              |
+| `split_gross` — 1% treasury        |   ✅     | inline test in `lib.rs`              |
+| `split_gross` — zero amount        |   ✅     | inline test in `lib.rs`              |
+| Route profile lookup               |   ✅     | inline test in `lib.rs`              |
+| `settle_native` happy path         |   ⏳    | add litesvm test once fixtures exist |
+| `settle_stable` happy path         |   ⏳    | add litesvm test once fixtures exist |
+| `set_signer` rotation              |   ⏳    | add litesvm test once fixtures exist |
 
 ## Deployment status
 
