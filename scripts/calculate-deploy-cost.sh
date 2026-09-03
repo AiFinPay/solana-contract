@@ -1,97 +1,172 @@
 #!/usr/bin/env bash
-# Deploy cost calculator for Solana programs
-# Calculates rent for PDA accounts and program deployment fees
+# Deploy cost calculator for an Anchor/Solana program.
+# Queries the Solana cluster for rent-exempt minimums and estimates total
+# deployment cost including program data account rent, transaction fees, and
+# PDA rent.
+#
+# Usage:
+#   ./calculate-deploy-cost.sh [--program <name>] [--url <rpc_url>]
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+DEPLOY_DIR="$PROJECT_ROOT/target/deploy"
 
-echo "=============================================="
-echo "  Solana Program Deploy Cost Calculator"
-echo "=============================================="
-echo
+# Defaults.
+PROGRAM_NAME="splitter"
+SOLANA_URL="https://api.devnet.solana.com"
 
-# Build programs if not already built
-if [ ! -f "$PROJECT_ROOT/target/deploy/splitter.so" ]; then
-    echo "Building splitter..."
+# Parse arguments.
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --program)
+            PROGRAM_NAME="$2"
+            shift 2
+            ;;
+        --url)
+            SOLANA_URL="$2"
+            shift 2
+            ;;
+        --keypair)
+            # Accepted for consistency with deploy scripts; this estimate script
+            # does not perform transactions, so the keypair is not used.
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--program <program_name>] [--url <rpc_url>]"
+            echo "  --program   Program name under programs/ (default: splitter)"
+            echo "  --url       Solana cluster RPC URL (default: https://api.devnet.solana.com)"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--program <program_name>] [--url <rpc_url>]"
+            exit 1
+            ;;
+    esac
+done
+
+PROGRAM_SO="$DEPLOY_DIR/${PROGRAM_NAME}.so"
+PROGRAM_MANIFEST="$PROJECT_ROOT/programs/$PROGRAM_NAME/Cargo.toml"
+
+# Solana loader constants. Each deployment transaction writes up to 10 KB
+# (LOADER_CHUNK_SIZE bytes) and pays a small fee per transaction. This is a
+# rough historical approximation; real fees depend on the cluster fee market.
+LOADER_CHUNK_SIZE=10240
+FEE_PER_CHUNK_SOL="0.000005"
+
+log() {
+    echo "[deploy-cost] $*"
+}
+
+fmt_sol() {
+    printf "%.9f" "$1"
+}
+
+# Compute rent-exempt minimum for a given account size by calling `solana rent`.
+compute_rent() {
+    local size=$1
+    local rent_sol
+    if command -v solana >/dev/null 2>&1; then
+        rent_sol=$(solana rent "$size" --url "$SOLANA_URL" 2>&1 | grep "Rent-exempt minimum" | awk '{print $3}' || true)
+        if [[ -n "$rent_sol" ]]; then
+            echo "$rent_sol"
+            return
+        fi
+    fi
+    # Fallback: manual 2-year estimate at 3480 lamports/byte/year.
+    echo "scale=9; ($size * 3480 * 2) / 1000000000" | bc
+}
+
+# Ensure the program binary exists.
+if [[ ! -f "$PROGRAM_SO" ]]; then
+    if [[ ! -f "$PROGRAM_MANIFEST" ]]; then
+        log "Program manifest not found: $PROGRAM_MANIFEST"
+        log "Usage: $0 [--program <program_name>] [--url <rpc_url>]"
+        exit 1
+    fi
+    log "Program binary not found. Building $PROGRAM_NAME..."
     cd "$PROJECT_ROOT"
-    cargo build-sbf --features splitter
+    cargo build-sbf --manifest-path "$PROGRAM_MANIFEST"
 fi
 
-if [ ! -f "$PROJECT_ROOT/target/deploy/splitter_light.so" ]; then
-    echo "Building splitter_light..."
-    cd "$PROJECT_ROOT"
-    cargo build-sbf --features splitter_light
-fi
+PROGRAM_SIZE=$(stat -f%z "$PROGRAM_SO" 2>/dev/null || stat -c%s "$PROGRAM_SO")
+PROGRAM_SIZE_KB=$(echo "scale=2; $PROGRAM_SIZE / 1024" | bc)
+
+# Ceiling division for chunks.
+CHUNKS=$(( (PROGRAM_SIZE + LOADER_CHUNK_SIZE - 1) / LOADER_CHUNK_SIZE ))
+TX_FEE_SOL=$(echo "scale=9; $CHUNKS * $FEE_PER_CHUNK_SOL" | bc)
+
+# Program data account rent is the dominant cost. The program data account
+# stores the ELF binary on-chain and must be rent-exempt. Its size is roughly
+# the ELF size plus BPF loader account overhead (use PROGRAM_SIZE as a lower
+# bound; actual deployed size may be slightly larger).
+PROGRAM_RENT=$(compute_rent "$PROGRAM_SIZE")
+
+log "=== ${PROGRAM_NAME} Deploy Cost Calculation ==="
+log "Program binary     : $PROGRAM_SO"
+log "Program size       : $PROGRAM_SIZE bytes (${PROGRAM_SIZE_KB} KB)"
+log "Loader chunk size  : $LOADER_CHUNK_SIZE bytes"
+log "Chunks required    : $CHUNKS"
+log "Fee per chunk      : $FEE_PER_CHUNK_SOL SOL"
+log "TX fees only       : $(fmt_sol "$TX_FEE_SOL") SOL"
+log "TX fee calculation : $CHUNKS * $FEE_PER_CHUNK_SOL = $(fmt_sol "$TX_FEE_SOL") SOL"
 
 echo
+log "=== Program Data Rent Exemption ==="
+log "Program data account size : $PROGRAM_SIZE bytes"
+log "Program data rent           : $(fmt_sol "$PROGRAM_RENT") SOL"
+log "(dominant deploy cost; must be paid up-front and is refundable on close)"
 
-# Get program sizes
-SPLITTER_SIZE=$(stat -f%z "$PROJECT_ROOT/target/deploy/splitter.so" 2>/dev/null || stat -c%s "$PROJECT_ROOT/target/deploy/splitter.so")
-LIGHT_SIZE=$(stat -f%z "$PROJECT_ROOT/target/deploy/splitter_light.so" 2>/dev/null || stat -c%s "$PROJECT_ROOT/target/deploy/splitter_light.so")
-
-echo "Program sizes:"
-echo "  splitter.so:      $SPLITTER_SIZE bytes ($(echo "scale=2; $SPLITTER_SIZE/1024" | bc) KB)"
-echo "  splitter_light.so: $LIGHT_SIZE bytes ($(echo "scale=2; $LIGHT_SIZE/1024" | bc) KB)"
 echo
+log "=== PDA Rent Exemption ==="
 
-# Calculate deployment fees (chunks of 1024 bytes)
-SPLITTER_CHUNKS=$(( (SPLITTER_SIZE / 1024) + 1 ))
-LIGHT_CHUNKS=$(( (LIGHT_SIZE / 1024) + 1 ))
-
-# Fee per chunk ~0.000005 SOL
-SPLITTER_DEPLOY_FEE=$(echo "scale=6; $SPLITTER_CHUNKS * 0.000005" | bc)
-LIGHT_DEPLOY_FEE=$(echo "scale=6; $LIGHT_CHUNKS * 0.000005" | bc)
-
-echo "Deployment fees:"
-echo "  splitter:         $SPLITTER_CHUNKS chunks = $SPLITTER_DEPLOY_FEE SOL"
-echo "  splitter_light:   $LIGHT_CHUNKS chunks = $LIGHT_DEPLOY_FEE SOL"
-echo
-
-# Calculate rent for PDA accounts using solana CLI
-echo "PDA Rent exemption (via solana rent):"
-echo "-------------------------------------------"
-
-# Config: 8 + 32 + 64 + 32 + 32 + 32 + 32 + 1 + 1 = 234 bytes
+# PDA sizes must match the on-chain account layouts.
+# Config: 8 (discriminator) + 32 (admin) + 64 (signer) + 32 (pauser) +
+#         32 (treasury) + 32 (token_list) + 32 (profiles) + 1 (bump) + 1 (is_paused) = 234
 CONFIG_SIZE=234
-CONFIG_RENT=$(solana rent $CONFIG_SIZE 2>&1 | grep "Rent-exempt minimum" | awk '{print $3}')
-echo "  Config ($CONFIG_SIZE bytes):     $CONFIG_RENT SOL"
+# TokenList: 8 + 32 (admin) + 4 (vec len) + 16 * 32 (tokens) + 1 (bump) = 557
+TOKEN_LIST_SIZE=557
+# ProfilesIndex: 8 + 4 (vec len) + 32 * 77 (entries) + 1 (count) + 1 (bump) = 2470
+# RouteProfileEntry: 32 (route_id) + 2 (treasury_bps) + 2 (ip_creator_bps) +
+#                    1 (enabled) + 8 (configured_at) + 32 (route_treasury) = 77
+PROFILES_SIZE=2470
 
-# TokenList max: 8 + 32 + 4 + (20 * 32) + 1 = 685 bytes
-TOKEN_LIST_SIZE=685
-TOKEN_LIST_RENT=$(solana rent $TOKEN_LIST_SIZE 2>&1 | grep "Rent-exempt minimum" | awk '{print $3}')
-echo "  TokenList ($TOKEN_LIST_SIZE bytes):   $TOKEN_LIST_RENT SOL"
+CONFIG_RENT=$(compute_rent "$CONFIG_SIZE")
+TOKEN_LIST_RENT=$(compute_rent "$TOKEN_LIST_SIZE")
+PROFILES_RENT=$(compute_rent "$PROFILES_SIZE")
 
-# ProfilesIndex max: 8 + 4 + (10 * 77) + 1 + 1 = 793 bytes
-# RouteProfileEntry: 32 + 2 + 2 + 1 + 8 + 32 = 77 bytes
-PROFILES_SIZE=793
-PROFILES_RENT=$(solana rent $PROFILES_SIZE 2>&1 | grep "Rent-exempt minimum" | awk '{print $3}')
-echo "  ProfilesIndex ($PROFILES_SIZE bytes): $PROFILES_RENT SOL"
+log "Config       ($CONFIG_SIZE bytes)     : $(fmt_sol "$CONFIG_RENT") SOL"
+log "TokenList    ($TOKEN_LIST_SIZE bytes) : $(fmt_sol "$TOKEN_LIST_RENT") SOL"
+log "ProfilesIndex($PROFILES_SIZE bytes)  : $(fmt_sol "$PROFILES_RENT") SOL"
 
-echo "-------------------------------------------"
+PDA_TOTAL_RENT=$(echo "$CONFIG_RENT + $TOKEN_LIST_RENT + $PROFILES_RENT" | bc)
+log "Total PDA rent                        : $(fmt_sol "$PDA_TOTAL_RENT") SOL"
+log "PDA rent calculation : $(fmt_sol "$CONFIG_RENT") + $(fmt_sol "$TOKEN_LIST_RENT") + $(fmt_sol "$PROFILES_RENT") = $(fmt_sol "$PDA_TOTAL_RENT") SOL"
 
-# Calculate total rent (parse SOL values)
-CONFIG_RENT_NUM=$(echo "$CONFIG_RENT" | tr -d 'SOL')
-TOKEN_LIST_RENT_NUM=$(echo "$TOKEN_LIST_RENT" | tr -d 'SOL')
-PROFILES_RENT_NUM=$(echo "$PROFILES_RENT" | tr -d 'SOL')
-
-TOTAL_RENT=$(echo "$CONFIG_RENT_NUM + $TOKEN_LIST_RENT_NUM + $PROFILES_RENT_NUM" | bc)
-
-echo "  TOTAL PDA RENT:   $TOTAL_RENT SOL"
 echo
+TOTAL_DEPLOY=$(echo "$PROGRAM_RENT + $TX_FEE_SOL" | bc)
+TOTAL_LAUNCH=$(echo "$TOTAL_DEPLOY + $PDA_TOTAL_RENT" | bc)
+log "=== Total Deploy Cost ==="
+log "Program data rent : $(fmt_sol "$PROGRAM_RENT") SOL"
+log "TX fees only      : $(fmt_sol "$TX_FEE_SOL") SOL"
+log "Deploy subtotal   : $(fmt_sol "$TOTAL_DEPLOY") SOL"
+log "Deploy calculation: $(fmt_sol "$PROGRAM_RENT") + $(fmt_sol "$TX_FEE_SOL") = $(fmt_sol "$TOTAL_DEPLOY") SOL"
 
-# Final totals
-echo "=============================================="
-echo "  TOTAL DEPLOY COST"
-echo "=============================================="
-SPLITTER_TOTAL=$(echo "$SPLITTER_DEPLOY_FEE + $TOTAL_RENT" | bc)
-echo "  splitter:         $SPLITTER_TOTAL SOL"
-echo "                    (deploy: $SPLITTER_DEPLOY_FEE + rent: $TOTAL_RENT)"
 echo
-echo "  splitter_light:   $LIGHT_DEPLOY_FEE SOL"
-echo "                    (no PDA initialization)"
-echo "=============================================="
+log "=== Total Estimated Launch Cost (deploy + PDAs) ==="
+log "PDA rent      : $(fmt_sol "$PDA_TOTAL_RENT") SOL"
+log "Deploy cost   : $(fmt_sol "$TOTAL_DEPLOY") SOL"
+log "TOTAL         : $(fmt_sol "$TOTAL_LAUNCH") SOL"
+log "Calculation   : $(fmt_sol "$PDA_TOTAL_RENT") + $(fmt_sol "$TOTAL_DEPLOY") = $(fmt_sol "$TOTAL_LAUNCH") SOL"
+
 echo
-echo "Note: PDA rent is refundable upon account closure."
-echo "      Program deployment fees are non-refundable."
+log "Notes:"
+log "  • Program data rent and PDA rent are refundable when accounts are closed."
+log "  • Transaction fees are non-refundable."
+log "  • Actual transaction fees may vary based on cluster congestion."
+log "  • This script queries $SOLANA_URL via 'solana rent'; fallback uses a manual 2-year estimate."
+log "  • The program data account size in reality may be slightly larger than the ELF size."
+
+
