@@ -42,9 +42,8 @@ Where:
 - `Borsh(Quote)` is the Anchor/Borsh serialization of the `Quote` struct in the
   field order declared in `state.rs`.
 
-The implementation is `quote_message_hash()` in `programs/splitter/src/utils.rs`
-and in `programs/splitter_light/src/utils.rs`. It is also exposed as `digest()`
-for tests and off-chain compatibility.
+The implementation is `quote_message_hash()` in `programs/splitter/src/utils.rs`.
+It is also exposed as `digest()` for tests and off-chain compatibility.
 
 ### 2. Do not migrate to an EIP-712 / keccak256 digest for v1.4
 
@@ -129,8 +128,5 @@ vector that is also cross-checked against the EVM v1.4 contract (see
 - [x] Update `ARCHITECTURE.md` §5 to describe the Solana-native digest.
 - [x] Update `SECURITY.md` invariant #7 to reflect chain-specific digest parity.
 - [x] Update `programs/splitter/README.md` quote schema section.
-- [x] Apply the same digest construction to `programs/splitter_light`.
-- [x] Document `splitter_light` in repo-level `README.md`, `ARCHITECTURE.md`,
-      and `docs/IMPLEMENTATION.md`.
 - [ ] Add a hardcoded cross-chain digest regression vector once the EVM v1.4
-      fixture is available for both `splitter` and `splitter_light`.
+      fixture is available.

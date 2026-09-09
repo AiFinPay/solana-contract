@@ -2,17 +2,11 @@
 
 ## 1. Purpose
 
-The `splitter` and `splitter_light` programs are the **Solana counterparts**
-of the AiFinPay B2B payment splitter v1.4. They accept signed payment quotes,
-split the gross amount into a merchant leg, an optional protocol-treasury leg,
-and an optional IP-creator royalty leg, and atomically credit the three legs
-in a single transaction.
-
-This document primarily describes the full `splitter` program. The light
-variant is documented in [`programs/splitter_light/README.md`](./programs/splitter_light/README.md);
-it keeps the same settlement semantics but removes the on-chain admin, pauser,
-registry, and route-configuration instructions in favor of hardcoded constants
-and ECDSA-only signer rotation.
+The `splitter` program is the **Solana counterpart** of the AiFinPay B2B
+payment splitter v1.4. It accepts signed payment quotes, splits the gross
+amount into a merchant leg, an optional protocol-treasury leg, and an optional
+IP-creator royalty leg, and atomically credits the three legs in a single
+transaction.
 
 Cross-chain design constraint: **the on-chain payment semantics, route
 identifiers, fee caps, and quote field order MUST match the EVM v1.4
@@ -276,9 +270,6 @@ indexers can deduplicate retries.
 - `cargo test` runs the inline unit tests in each program's `lib.rs` and the
   `litesvm`-based integration test in `programs/splitter/tests/test_initialize.rs`.
 - `cargo build-sbf` is the deploy gate. It produces
-  `target/deploy/splitter.so` and `target/deploy/splitter_light.so`.
-- Per-package commands are also available:
-  - `cargo test --package splitter_light`
-  - `cargo build-sbf --package splitter_light`
+  `target/deploy/splitter.so`.
 - The CI pipeline in `.github/workflows/ci.yml` runs formatting, tests,
   clippy, and SBF build on every PR and push to `main` / `dev`.

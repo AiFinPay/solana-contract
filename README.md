@@ -143,11 +143,9 @@ solana program close <PROGRAM_ID> \
 
 ## Overview
 
-Two canonical Anchor **v1.1.2** programs:
+The single canonical Anchor **v1.1.2** program is:
 
 - `programs/splitter/` — full-featured registry-based splitter.
-- `programs/splitter_light/` — minimal hardcoded variant with no on-chain
-  admin or registry (same quote/split semantics, ECDSA-only signer rotation).
 
 Two settlement routes at v1.4:
 
@@ -174,7 +172,6 @@ Tests use `litesvm`, not Anchor's JS harness.
 - [`docs/adr/`](./docs/adr/) — Architecture Decision Records.
 - [`AGENTS.md`](./AGENTS.md) — agent / opencode instructions.
 - [`programs/splitter/README.md`](./programs/splitter/README.md) — full splitter program reference.
-- [`programs/splitter_light/README.md`](./programs/splitter_light/README.md) — light splitter program reference.
 
 ## Repository Layout
 
@@ -189,18 +186,6 @@ Tests use `litesvm`, not Anchor's JS harness.
 │   │   ├── utils.rs            # digest, recover_signer, split_gross, events
 │   │   └── instructions/       # one file per instruction handler
 │   ├── tests/test_initialize.rs    # litesvm integration test
-│   ├── Cargo.toml
-│   ├── AGENTS.md               # Program-level agent instructions
-│   └── README.md               # Program-level quick reference
-├── programs/splitter_light/    # Minimal hardcoded variant (cdylib + lib)
-│   ├── src/
-│   │   ├── lib.rs              # declare_id, #[program] dispatch, inline tests
-│   │   ├── constants.rs        # route IDs, USDC/USDT mints, treasury, signer
-│   │   ├── state.rs            # Config, PayerNonce, ConsumedNonce, Quote
-│   │   ├── error.rs            # ErrorCode variants
-│   │   ├── utils.rs            # digest, recover_signer, split_gross, events
-│   │   ├── instructions.rs     # re-exports
-│   │   └── instructions/         # settle_native, settle_stable, set_signer
 │   ├── Cargo.toml
 │   ├── AGENTS.md               # Program-level agent instructions
 │   └── README.md               # Program-level quick reference

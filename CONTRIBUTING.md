@@ -29,7 +29,7 @@ cargo test                         # inline unit tests + litesvm integration tes
 
 1. **Create a branch** from `main` (or `dev`) named `feat/<slug>`,
    `fix/<slug>`, `audit/<slug>`, or `chore/<slug>`.
-2. **Make your change** in `programs/splitter/` or `programs/splitter_light/`.
+2. **Make your change** in `programs/splitter/`.
 3. **Run the local checks** before pushing (see §5).
 4. **Push** and open a pull request against the original branch.
 5. CI must pass (`fmt --check`, `cargo test --locked`, `clippy`, `build-sbf`).
@@ -87,9 +87,6 @@ match the Solana BPF toolchain expected by `anchor-lang 1.1.2`.
 - **Integration tests** live in `programs/splitter/tests/` and use
   `litesvm`. They load `target/deploy/splitter.so` directly, so make sure
   `cargo build-sbf` has been run before invoking `cargo test`.
-- **`splitter_light`** currently has inline unit tests only. Add a
-  `programs/splitter_light/tests/` directory when the first litesvm test is
-  created.
 - **Coverage target**: 80% on new code. If you cannot hit that, document
   the gap in the PR description.
 - **Digest regression vectors**: when changing the digest, add a regression
@@ -128,8 +125,6 @@ Any PR touching one of these MUST:
 - [ ] New `ErrorCode` variants have a clear `#[msg]`.
 - [ ] `ARCHITECTURE.md` updated if layout / roles / digest changed.
 - [ ] `docs/IMPLEMENTATION.md` updated with status.
-- [ ] `programs/splitter_light/README.md` / `AGENTS.md` updated if the light
-  variant is touched.
 - [ ] `docs/adr/` updated if a new architectural decision was made.
 - [ ] No secrets, keypairs, or test wallets committed.
 

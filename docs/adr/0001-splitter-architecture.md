@@ -34,12 +34,9 @@ The canonical deployment is one Anchor program named `splitter` with program ID
 `56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr`. All full-featured settlement
 logic lives in `programs/splitter/`.
 
-A second, minimal program named `splitter_light` with program ID
-`7vGTUXSmooih99MuzQELyaeFeZmuo4QcstS7T9Jv7yyR` lives in
-`programs/splitter_light/`. It preserves the same quote schema, split math,
-and secp256k1 signer model but removes the on-chain admin/pauser/registry in
-favor of hardcoded configuration and ECDSA-only signer rotation. It is documented
-separately in its own `README.md` and `AGENTS.md`.
+A second, minimal program named `splitter_light` was previously maintained
+under `programs/splitter_light/` but has been removed from the active
+source tree. The canonical deployment is the full `splitter` program only.
 
 ### 2. Solana-native, program-bound digest
 
@@ -103,10 +100,10 @@ distinct. This is enforced at `initialize` and at every rotation
 instruction. Rationale: a single compromised key must not be able to
 pause, rotate, and settle simultaneously.
 
-`splitter_light` intentionally does **not** implement this RBAC model. The
-only privileged role is the secp256k1 signer, which can rotate itself via
-ECDSA signatures. This is a deliberate trust-model reduction for the minimal
-variant; see `programs/splitter_light/AGENTS.md`.
+The removed `splitter_light` variant intentionally did **not** implement
+this RBAC model. The only privileged role was the secp256k1 signer, which
+could rotate itself via ECDSA signatures. This was a deliberate trust-model
+reduction for the minimal variant.
 
 ### 7. Native and stable as separate instructions
 
@@ -122,7 +119,7 @@ than a single instruction with a discriminator). Rationale:
 
 The CI runs `cargo test` which compiles to native and exercises the
 inline `#[cfg(test)]` unit tests in `lib.rs` plus the `litesvm`
-integration test in `tests/test_initialize.rs`. This avoids the JS
+integration test in `programs/splitter/tests`. This avoids the JS
 toolchain and makes CI deterministic. `Anchor.toml` sets
 `skip_local_validator = true` to signal that Anchor's local validator
 is not part of the workflow.

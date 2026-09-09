@@ -4,13 +4,9 @@ This document tracks the **current state** of the AiFinPay Solana
 Splitter implementation against the v1.4 specification. It is updated
 each time a feature is delivered, refactored, or removed.
 
-Two programs are in scope:
+One program is in scope:
 
 - `splitter` — full registry-based program under `programs/splitter/`.
-- `splitter_light` — minimal hardcoded program under `programs/splitter_light/`.
-  It mirrors the settlement surface of `splitter` but has no on-chain admin,
-  pauser, treasury registry, or route configuration. See
-  [`programs/splitter_light/README.md`](../programs/splitter_light/README.md).
 
 ## Status legend
 
@@ -40,14 +36,6 @@ Two programs are in scope:
 | `grant_pauser_role`     |  ✅   | `instructions/grant_pauser_role.rs`      | — |
 | `rotate_pauser_role`    |  ✅   | `instructions/rotate_pauser_role.rs`     | — |
 
-### `splitter_light`
-
-| Instruction     | Status | Handler file                          | Tests |
-|-----------------|:------:|---------------------------------------|-------|
-| `settle_native` |  ✅   | `instructions/settle_native.rs`       | inline helpers only |
-| `settle_stable` |  ✅   | `instructions/settle_stable.rs`       | inline helpers only |
-| `set_signer`    |  ✅   | `instructions/set_signer.rs`          | inline helpers only |
-
 ## State accounts
 
 | Account                | Status | Owner         |
@@ -64,8 +52,7 @@ Two programs are in scope:
 
 ## Cross-chain parity
 
-The following fields are shared between `splitter` and `splitter_light` and
-MUST match EVM v1.4.
+The following fields are shared with EVM v1.4 and MUST match.
 
 | Field                  | Status     | Notes                                  |
 |------------------------|:----------:|----------------------------------------|
@@ -77,9 +64,6 @@ MUST match EVM v1.4.
 | `ROUTE_MERCHANT_AIFP1` | ✅ match   | EVM v1.4 deployment                    |
 | `MAX_TREASURY_BPS`     | ✅ match   | 500                                    |
 | `MAX_IP_CREATOR_BPS`   | ✅ match   | 100                                    |
-
-`splitter_light` additionally hardcodes the same `USDC_MINT`, `USDT_MINT`,
-`MESSAGE_DOMAIN_TAG`, quote field order, and split math as `splitter`.
 
 ## CI
 
@@ -103,9 +87,6 @@ root level (`Cargo.toml` with `members = ["programs/*"]`).
       `settle_stable` test once test keypairs are generated.
 - [ ] **Native-settlement integration test** — same as above; depends on
       a pre-generated secp256k1 keypair fixture.
-- [ ] **`splitter_light` litesvm tests** — currently only inline unit tests
-      exist. Add `programs/splitter_light/tests/` once secp256k1 fixtures are
-      ready.
 - [ ] **EIP-712 vector regression** — pin the byte-for-byte digest for a
       canonical quote and cross-check against the EVM v1.4 fixture.
 - [ ] **Audit report** — once `senior-solidity-auditor` /
@@ -124,7 +105,7 @@ root level (`Cargo.toml` with `members = ["programs/*"]`).
 | `split_gross` — 1% treasury        |   ✅     | inline test                          |
 | `split_gross` — zero amount        |   ✅     | inline test                          |
 | `split_gross` — missing IP creator |   ✅     | inline test                          |
-| `initialize` (litesvm)            |   ✅     | `tests/test_initialize.rs`           |
+| `initialize` (litesvm)            |   ✅     | `tests/test_initialize.rs`             |
 | `settle_native` happy path         |   ⏳    |                                      |
 | `settle_native` invalid signature  |   ⏳    |                                      |
 | `settle_stable` happy path         |   ⏳    |                                      |
@@ -132,23 +113,6 @@ root level (`Cargo.toml` with `members = ["programs/*"]`).
 | `quote_total` view                 |   ⏳    |                                      |
 | Pause / unpause                    |   ⏳    |                                      |
 | Role rotation invariants           |   ⏳    |                                      |
-
-### `splitter_light`
-
-| Surface                            | Coverage | Notes                                |
-|------------------------------------|:--------:|--------------------------------------|
-| Route constant invariants          |   ✅     | inline test in `lib.rs`              |
-| Stablecoin constants               |   ✅     | inline test in `lib.rs`              |
-| `quote_message_hash` determinism   |   ✅     | inline test in `lib.rs`              |
-| secp256k1 recover — valid sig      |   ✅     | inline test in `lib.rs`              |
-| secp256k1 recover — tampered quote |   ✅     | inline test in `lib.rs`              |
-| `split_gross` — zero fees          |   ✅     | inline test in `lib.rs`              |
-| `split_gross` — 1% treasury        |   ✅     | inline test in `lib.rs`              |
-| `split_gross` — zero amount        |   ✅     | inline test in `lib.rs`              |
-| Route profile lookup               |   ✅     | inline test in `lib.rs`              |
-| `settle_native` happy path         |   ⏳    | add litesvm test once fixtures exist |
-| `settle_stable` happy path         |   ⏳    | add litesvm test once fixtures exist |
-| `set_signer` rotation              |   ⏳    | add litesvm test once fixtures exist |
 
 ## Deployment status
 
