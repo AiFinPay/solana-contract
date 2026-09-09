@@ -31,9 +31,9 @@ import * as fs from "fs";
 import * as path from "path";
 
 // ---------------------------------------------------------------------------
-// Load .env / .env.local (no dotenv dependency)
+// Load cluster env file + .env.local override (no dotenv dependency)
 // ---------------------------------------------------------------------------
-function loadEnvFile(envPath: string) {
+function loadEnvFile(envPath: string, overwrite = false) {
   if (!fs.existsSync(envPath)) return;
   const content = fs.readFileSync(envPath, "utf-8");
   content.split("\n").forEach(line => {
@@ -41,15 +41,17 @@ function loadEnvFile(envPath: string) {
     if (trimmed && !trimmed.startsWith("#")) {
       const [key, ...valueParts] = trimmed.split("=");
       if (key && valueParts.length > 0) {
+        if (overwrite || process.env[key.trim()] === undefined) {
         process.env[key.trim()] = valueParts.join("=").trim();
+      }
       }
     }
   });
 }
 
 const ROOT = path.join(__dirname, "..", "..");
-loadEnvFile(path.join(ROOT, ".env"));
-loadEnvFile(path.join(ROOT, ".env.local"));
+loadEnvFile(path.join(ROOT, ".env.production"));
+loadEnvFile(path.join(ROOT, ".env.local"), true);
 
 // ---------------------------------------------------------------------------
 // Constants (must match programs/splitter/src/constants.rs; canonical mainnet ID)

@@ -9,6 +9,7 @@ test-ledger
 # No secrets in this repo
 *.json.bak
 .env
+.env.development
 .env.production
 keypairs/
 private_keys.txt

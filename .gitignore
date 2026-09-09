@@ -9,7 +9,8 @@ test-ledger
 # No secrets in this repo
 *.json.bak
 .env
-/.env.production
+.env.development
+.env.production
 keypairs/
 private_keys.txt
 agents_config.json

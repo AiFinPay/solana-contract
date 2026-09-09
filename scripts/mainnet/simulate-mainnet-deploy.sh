@@ -22,7 +22,7 @@ DEPLOY_DIR="$PROJECT_ROOT/target/deploy"
 # Defaults.
 PROGRAM_NAME="splitter"
 KEYPAIR_DIR="$PROJECT_ROOT/keypairs"
-DEPLOYER_KEYPAIR="usb://ledger"
+DEPLOYER_KEYPAIR="usb://ledger?key=0"
 SOLANA_URL="https://api.mainnet-beta.solana.com"
 CONFIRM="ask"
 
@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [--program <program_name>] [--keypair <path|ledger-url>] [--url <rpc_url>] [--yes]"
             echo "  --program   Program name under programs/ (default: splitter)"
-            echo "  --keypair   Deployer signer: Ledger URL (default: usb://ledger) or file keypair path"
+            echo "  --keypair   Deployer signer: Ledger URL (default: usb://ledger?key=0) or file keypair path"
             echo "  --url       Solana cluster RPC URL (default: https://api.mainnet-beta.solana.com)"
             echo "  --yes       Skip the SIMULATE-MAINNET confirmation prompt"
             exit 0
