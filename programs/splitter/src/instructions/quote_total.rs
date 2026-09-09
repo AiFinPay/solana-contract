@@ -4,6 +4,9 @@ use crate::{error::ErrorCode, state::ProfilesIndex, utils::split_gross};
 
 #[derive(Accounts)]
 pub struct QuoteTotal<'info> {
+    #[account(seeds = [crate::constants::CONFIG_SEED], bump = config.bump)]
+    pub config: Account<'info, crate::state::Config>,
+
     #[account(seeds = [crate::constants::PROFILES_INDEX_SEED], bump = profiles.bump)]
     pub profiles: Account<'info, ProfilesIndex>,
 }
@@ -22,6 +25,10 @@ pub fn handle_quote_total(
     route_id: [u8; 32],
     ip_creator: Pubkey,
 ) -> Result<QuoteTotalResult> {
+    // SOL-MED-002: respect protocol pause. Indexers should not receive
+    // stale fee structures during incident response.
+    require!(!ctx.accounts.config.is_paused, ErrorCode::ProtocolPaused);
+
     let entry = ctx
         .accounts
         .profiles

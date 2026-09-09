@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer as SplTransfer};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer as SplTransfer};
 
 use crate::{
     error::ErrorCode,
@@ -37,9 +37,9 @@ pub struct SettleStable<'info> {
     #[account(constraint = token_list.is_allowed(mint.key()))]
     pub token_list: Account<'info, TokenList>,
 
-    /// CHECK: the mint is validated against the whitelisted token list and the
-    ///         remaining token accounts in the handler.
-    pub mint: UncheckedAccount<'info>,
+    /// Mint is a real SPL Mint; Anchor validates owner == token_program and
+    /// deserializes the Mint layout. SOL-HIGH-002 / SOL-LOW-003.
+    pub mint: Account<'info, Mint>,
 
     #[account(mut, seeds = [crate::constants::PROFILES_INDEX_SEED], bump = profiles.bump)]
     pub profiles: Account<'info, ProfilesIndex>,
@@ -69,6 +69,15 @@ pub fn handle_settle_stable<'a>(
     let remaining = ctx.remaining_accounts;
     require!(remaining.len() >= 3, ErrorCode::UnsupportedToken);
 
+    // SOL-HIGH-005: every destination must be writable, otherwise the SPL
+    // CPI will fail AFTER consumed_nonce is marked, locking the user's
+    // nonce forever without moving funds.
+    require!(remaining[1].is_writable, ErrorCode::DestinationNotWritable);
+    require!(remaining[2].is_writable, ErrorCode::DestinationNotWritable);
+    if remaining.len() >= 4 {
+        require!(remaining[3].is_writable, ErrorCode::DestinationNotWritable);
+    }
+
     // Validate that remaining accounts are distinct from each other and from the payer.
     let payer_key = ctx.accounts.payer.key();
     for (i, account_i) in remaining.iter().enumerate() {
@@ -79,6 +88,21 @@ pub fn handle_settle_stable<'a>(
                 key_i != account_j.key(),
                 ErrorCode::DuplicateSettlementAccount
             );
+        }
+    }
+
+    // SOL-HIGH-003: exclude protocol PDAs from being settlement recipients.
+    let protocol_pdas = [
+        ctx.accounts.config.key(),
+        ctx.accounts.profiles.key(),
+        ctx.accounts.payer_nonce.key(),
+        ctx.accounts.consumed_nonce.key(),
+    ];
+    for pda in &protocol_pdas {
+        require!(remaining[1].key() != *pda, ErrorCode::ProtocolAccountMisuse);
+        require!(remaining[2].key() != *pda, ErrorCode::ProtocolAccountMisuse);
+        if remaining.len() >= 4 {
+            require!(remaining[3].key() != *pda, ErrorCode::ProtocolAccountMisuse);
         }
     }
 
@@ -196,8 +220,13 @@ fn deserialize_token_account(
     let account =
         TokenAccount::try_deserialize(&mut &data[..]).map_err(|_| ErrorCode::UnsupportedToken)?;
     require!(account.mint == *expected_mint, ErrorCode::UnsupportedToken);
+    // SOL-HIGH-004: use a token-account-specific error code so incidents
+    // can distinguish "wrong ATA owner" from "wrong quote payer".
     if let Some(owner) = expected_owner {
-        require!(account.owner == *owner, ErrorCode::InvalidPayer);
+        require!(
+            account.owner == *owner,
+            ErrorCode::TokenAccountOwnerMismatch
+        );
     }
     Ok(account)
 }

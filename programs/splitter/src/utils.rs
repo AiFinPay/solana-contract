@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    constants::{BPS_DENOMINATOR, MESSAGE_DOMAIN_TAG},
+    constants::{BPS_DENOMINATOR, MAX_QUOTE_LIFETIME_SECONDS, MESSAGE_DOMAIN_TAG},
     error::ErrorCode,
     state::{Config, ConsumedNonce, PayerNonce, ProfilesIndex, Quote, RouteProfileEntry},
 };
@@ -32,22 +32,55 @@ pub struct TreasuryUpdated {
 /// This is NOT EIP-712. It uses:
 /// - a versioned domain tag (not keccak),
 /// - the Solana program_id as the domain,
-/// - Borsh serialization of `Quote`,
+/// - an explicit, hand-written byte encoding of `Quote` fields in a fixed
+///   order (NOT Borsh), so the contract with off-chain signers is part of
+///   source and does not silently change if `Quote` is reordered or
+///   extended,
 /// - SHA-256 (Solana's native hash function).
 ///
-/// Off-chain signers must implement the same construction.
+/// Field order MUST match the EVM v1.4 abi.encode(quote) layout.
+/// DO NOT REORDER. This is a cross-chain sacred constant.
 pub fn quote_message_hash(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
-    let mut quote_bytes = Vec::with_capacity(256);
-    quote
-        .serialize(&mut quote_bytes)
-        .expect("Quote serialization failed");
-    solana_program::hash::hashv(&[MESSAGE_DOMAIN_TAG, program_id.as_ref(), &quote_bytes]).to_bytes()
+    let mut buf = [0u8; QUOTE_ENCODED_LEN];
+    encode_quote(quote, &mut buf);
+    solana_program::hash::hashv(&[MESSAGE_DOMAIN_TAG, program_id.as_ref(), &buf]).to_bytes()
 }
 
 /// Canonical digest exposed for tests and off-chain signing compatibility.
 /// Alias for [`quote_message_hash`].
 pub fn digest(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
     quote_message_hash(program_id, quote)
+}
+
+/// Length in bytes of the explicit Quote encoding:
+/// payer(32) + merchant(32) + token(32) + gross_amount(8) + ip_creator(32)
+/// + valid_until(8) + order_id_hash(32) + nonce(8) + route_id(32) = 216.
+pub const QUOTE_ENCODED_LEN: usize = 32 + 32 + 32 + 8 + 32 + 8 + 32 + 8 + 32;
+
+/// Hand-written little-endian encoding of every Quote field, in a fixed
+/// order. Reordering or extending `Quote` does NOT change this layout,
+/// but the on-chain verifier and the off-chain signer MUST keep this
+/// identical. Cross-chain sacred constant.
+pub fn encode_quote(quote: &Quote, out: &mut [u8; QUOTE_ENCODED_LEN]) {
+    let mut o = 0usize;
+    out[o..o + 32].copy_from_slice(quote.payer.as_ref());
+    o += 32;
+    out[o..o + 32].copy_from_slice(quote.merchant.as_ref());
+    o += 32;
+    out[o..o + 32].copy_from_slice(quote.token.as_ref());
+    o += 32;
+    out[o..o + 8].copy_from_slice(&quote.gross_amount.to_le_bytes());
+    o += 8;
+    out[o..o + 32].copy_from_slice(quote.ip_creator.as_ref());
+    o += 32;
+    out[o..o + 8].copy_from_slice(&quote.valid_until.to_le_bytes());
+    o += 8;
+    out[o..o + 32].copy_from_slice(&quote.order_id_hash);
+    o += 32;
+    out[o..o + 8].copy_from_slice(&quote.nonce.to_le_bytes());
+    o += 8;
+    out[o..o + 32].copy_from_slice(&quote.route_id);
+    debug_assert_eq!(o + 32, QUOTE_ENCODED_LEN);
 }
 
 /// Recover the secp256k1 public key from a 65-byte Ethereum-style signature.
@@ -58,6 +91,9 @@ pub fn recover_signer(digest: &[u8; 32], signature: &[u8; 65]) -> Result<[u8; 64
 
     let v = signature[64];
     let recovery_id = v.checked_sub(27).ok_or(ErrorCode::InvalidSignature)?;
+    // SOL-LOW-002: a valid secp256k1 recovery_id is 0 or 1. v=27 -> 0,
+    // v=28 -> 1. Anything else is malformed; reject fast.
+    require!(recovery_id <= 1, ErrorCode::InvalidRecoveryId);
 
     let s_high = is_high_s(signature);
     if s_high {
@@ -110,6 +146,12 @@ pub fn verify_quote_core(
         clock.unix_timestamp <= quote.valid_until,
         ErrorCode::SignatureExpired
     );
+    // SOL-LOW-004: bound quote lifetime so a misconfigured off-chain
+    // signer cannot lock quotes effectively forever.
+    require!(
+        quote.valid_until <= clock.unix_timestamp + MAX_QUOTE_LIFETIME_SECONDS,
+        ErrorCode::SignatureExpired
+    );
     require!(!quote.payer.eq(&Pubkey::default()), ErrorCode::InvalidPayer);
     require!(quote.payer.eq(&payer.key()), ErrorCode::InvalidPayer);
     require!(
@@ -120,12 +162,20 @@ pub fn verify_quote_core(
     let profile = find_route_profile(&profiles.entries, &quote.route_id)?;
     require!(profile.enabled, ErrorCode::RouteDisabled);
 
-    if payer_nonce.payer.eq(&Pubkey::default()) {
-        payer_nonce.payer = quote.payer;
+    // SOL-LOW-005: enforce payer-nonce consistency BEFORE writing
+    // payer_nonce.payer. If the existing payer_nonce.payer is non-default
+    // it must match quote.payer; otherwise the first call must be the
+    // first call ever for this payer (and the seed ensures that).
+    if !payer_nonce.payer.eq(&Pubkey::default()) {
+        require!(payer_nonce.payer == quote.payer, ErrorCode::InvalidPayer);
     }
     require!(quote.nonce == payer_nonce.nonce, ErrorCode::InvalidNonce);
     require!(!consumed_nonce.consumed, ErrorCode::NonceAlreadyConsumed);
 
+    // Now it is safe to write payer_nonce state.
+    if payer_nonce.payer.eq(&Pubkey::default()) {
+        payer_nonce.payer = quote.payer;
+    }
     let next_nonce = quote.nonce.checked_add(1).ok_or(ErrorCode::NonceOverflow)?;
     payer_nonce.nonce = next_nonce;
 

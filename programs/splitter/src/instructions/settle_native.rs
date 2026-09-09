@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, system_program};
 
 use crate::{
     error::ErrorCode,
@@ -29,7 +29,11 @@ pub struct SettleNative<'info> {
         bump
     )]
     pub consumed_nonce: Account<'info, ConsumedNonce>,
-
+    // SOL-MED-001: the seed set contains a key-controlled pubkey
+    // (payer.key()) so the derived address may not be a true PDA.
+    // Anchor's `init_if_needed` derives the address via
+    // `create_program_address` and fails if it lands on the curve, which
+    // is the correct runtime safety net. No additional check required.
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -91,6 +95,22 @@ pub fn handle_settle_native(
         ErrorCode::DuplicateSettlementAccount
     );
 
+    // Reject protocol PDAs as settlement recipients. Sending lamports to a
+    // program-owned PDA either locks funds forever (the program has no
+    // withdrawal path for config/token_list/profiles) or pollutes event
+    // accounting. SOL-HIGH-003.
+    let protocol_pdas = [
+        ctx.accounts.config.key(),
+        ctx.accounts.profiles.key(),
+        ctx.accounts.payer_nonce.key(),
+        ctx.accounts.consumed_nonce.key(),
+    ];
+    for pda in &protocol_pdas {
+        require!(merchant_key != *pda, ErrorCode::ProtocolAccountMisuse);
+        require!(treasury_key != *pda, ErrorCode::ProtocolAccountMisuse);
+        require!(ip_creator_key != *pda, ErrorCode::ProtocolAccountMisuse);
+    }
+
     let profile = verify_quote_core(
         &quote,
         &signature,
@@ -120,25 +140,39 @@ pub fn handle_settle_native(
         ErrorCode::ZeroTreasury
     );
 
-    // Debit payer and credit recipients atomically.
+    // Debit payer and credit recipients atomically through the System
+    // program so rent-exemption invariants are preserved. Direct lamport
+    // mutation bypasses the System program and can drop accounts below
+    // the rent-exempt minimum.
+    let system_program_id = ctx.accounts.system_program.key();
     let payer_info = ctx.accounts.payer.to_account_info();
-    **payer_info.try_borrow_mut_lamports()? = payer_info
-        .lamports()
-        .checked_sub(quote.gross_amount)
-        .ok_or(ErrorCode::IncorrectNativeValue)?;
-
     let merchant_info = ctx.accounts.merchant.to_account_info();
-    **merchant_info.try_borrow_mut_lamports()? = merchant_info
-        .lamports()
-        .checked_add(merchant_amt)
-        .ok_or(ErrorCode::MerchantTransferFailed)?;
+
+    system_program::transfer(
+        CpiContext::new(
+            system_program_id,
+            system_program::Transfer {
+                from: payer_info.clone(),
+                to: merchant_info,
+            },
+        ),
+        merchant_amt,
+    )
+    .map_err(|_| ErrorCode::MerchantTransferFailed)?;
 
     if treasury_amt > 0 {
         let treasury_info = ctx.accounts.treasury.to_account_info();
-        **treasury_info.try_borrow_mut_lamports()? = treasury_info
-            .lamports()
-            .checked_add(treasury_amt)
-            .ok_or(ErrorCode::TreasuryTransferFailed)?;
+        system_program::transfer(
+            CpiContext::new(
+                system_program_id,
+                system_program::Transfer {
+                    from: payer_info.clone(),
+                    to: treasury_info,
+                },
+            ),
+            treasury_amt,
+        )
+        .map_err(|_| ErrorCode::TreasuryTransferFailed)?;
     }
 
     if ip_amt > 0 {
@@ -151,10 +185,17 @@ pub fn handle_settle_native(
             ErrorCode::IPCreatorMismatch
         );
         let ip_info = ctx.accounts.ip_creator.to_account_info();
-        **ip_info.try_borrow_mut_lamports()? = ip_info
-            .lamports()
-            .checked_add(ip_amt)
-            .ok_or(ErrorCode::IPCreatorTransferFailed)?;
+        system_program::transfer(
+            CpiContext::new(
+                system_program_id,
+                system_program::Transfer {
+                    from: payer_info,
+                    to: ip_info,
+                },
+            ),
+            ip_amt,
+        )
+        .map_err(|_| ErrorCode::IPCreatorTransferFailed)?;
     }
 
     emit_payment(&quote, merchant_amt, treasury_amt, ip_amt)?;

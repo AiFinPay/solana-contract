@@ -17,13 +17,9 @@ pub fn handle_grant_signer_role(ctx: Context<GrantSignerRole>, signer: [u8; 64])
         ErrorCode::Unauthorized
     );
     require!(signer != [0u8; 64], ErrorCode::ZeroSigner);
-    // Operational role separation: signer must be a different key material from admin/pauser.
-    // The secp256k1 public key cannot be directly compared to a Solana ed25519 address,
-    // so this only checks the zero/default case which is already rejected above.
-    require!(
-        config.admin != Pubkey::default() && config.pauser != Pubkey::default(),
-        ErrorCode::AdminEqualsSigner
-    );
+    // SOL-MED-006: the previous "role separation" check was dead code; the
+    // secp256k1 X coordinate cannot be compared to a Solana ed25519
+    // address. Operational separation is enforced out-of-band.
 
     ctx.accounts.config.signer = signer;
     msg!("Signer role granted");

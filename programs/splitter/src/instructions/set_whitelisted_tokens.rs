@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{Mint, Token};
 
 use crate::{
     constants::MAX_TOKENS,
@@ -15,6 +16,8 @@ pub struct SetWhitelistedTokens<'info> {
     pub token_list: Account<'info, TokenList>,
 
     pub admin: Signer<'info>,
+
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handle_set_whitelisted_tokens(
@@ -32,6 +35,27 @@ pub fn handle_set_whitelisted_tokens(
         ErrorCode::ArrayLengthMismatch
     );
     require!(tokens.len() <= MAX_TOKENS, ErrorCode::TokenListFull);
+
+    // SOL-MED-005: each mint referenced in the update must be supplied as
+    // a remaining account and validated against the SPL Token program.
+    let remaining = ctx.remaining_accounts;
+    require!(
+        remaining.len() == tokens.len(),
+        ErrorCode::ArrayLengthMismatch
+    );
+
+    // Validate every supplied mint: owner == token_program, and the key
+    // matches the requested mint pubkey.
+    for (i, mint_info) in remaining.iter().enumerate() {
+        require!(
+            *mint_info.owner == ctx.accounts.token_program.key(),
+            ErrorCode::InvalidMint
+        );
+        let mint = Mint::try_deserialize(&mut &mint_info.data.borrow()[..])
+            .map_err(|_| ErrorCode::InvalidMint)?;
+        require!(mint.is_initialized, ErrorCode::InvalidMint);
+        require!(mint_info.key() == tokens[i], ErrorCode::InvalidMint);
+    }
 
     // Reject duplicate mints in a single update to guarantee deterministic add/remove semantics.
     for (i, mint) in tokens.iter().enumerate() {

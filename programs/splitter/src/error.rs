@@ -88,4 +88,14 @@ pub enum ErrorCode {
     DuplicateToken,
     #[msg("Settlement accounts must be distinct from the payer and from each other")]
     DuplicateSettlementAccount,
+    #[msg("Settlement recipient is a protocol PDA; funds would be locked")]
+    ProtocolAccountMisuse,
+    #[msg("Token account owner does not match expected owner")]
+    TokenAccountOwnerMismatch,
+    #[msg("Mint account is not a valid SPL Mint owned by the token program")]
+    InvalidMint,
+    #[msg("Settlement destination account is not writable")]
+    DestinationNotWritable,
+    #[msg("Recovery ID out of range; expected 0 or 1")]
+    InvalidRecoveryId,
 }

@@ -9,10 +9,12 @@ use crate::{
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     /// Only the hardcoded deployer may initialize the canonical singleton PDAs.
-    /// In production this is enforced via the handler; compile-time cfg gating of
-    /// Anchor `#[account(address = ...)]` breaks the derive macro, so we keep a
-    /// single `Signer` definition and validate in code.
-    #[account(mut)]
+    /// Enforced both via `address = DEPLOYER` constraint and a runtime check in
+    /// the handler (belt-and-braces).
+    #[account(
+        mut,
+        address = DEPLOYER @ ErrorCode::InvalidDeployer,
+    )]
     pub payer: Signer<'info>,
 
     #[account(
@@ -60,16 +62,15 @@ pub struct InitializeParams {
 pub fn handle_initialize(ctx: Context<Initialize>, params: InitializeParams) -> Result<()> {
     let clock = Clock::get()?;
 
-    // The deployer address is fixed and must match the payer in production.
-    // When DEPLOYER is the placeholder default pubkey (test builds / local
-    // development), the gate is relaxed so integration tests can initialize.
-    // Replace DEPLOYER with the real deployer/multisig pubkey before deployment.
-    if !DEPLOYER.eq(&Pubkey::default()) {
-        require!(
-            ctx.accounts.payer.key().eq(&DEPLOYER),
-            ErrorCode::InvalidDeployer
-        );
-    }
+    // The deployer gate is enforced unconditionally. The `DEPLOYER` constant
+    // must be set to the real deployer/multisig pubkey before mainnet
+    // deployment. A `build.rs` guard fails the build if DEPLOYER equals
+    // `Pubkey::default()` in non-test profiles.
+    require!(!DEPLOYER.eq(&Pubkey::default()), ErrorCode::ZeroDeployer);
+    require!(
+        ctx.accounts.payer.key().eq(&DEPLOYER),
+        ErrorCode::InvalidDeployer
+    );
 
     require!(!params.admin.eq(&Pubkey::default()), ErrorCode::ZeroAdmin);
     require!(params.signer != [0u8; 64], ErrorCode::ZeroSigner);

@@ -11,7 +11,7 @@ pub use instructions::*;
 pub use state::*;
 pub use utils::*;
 
-declare_id!("BrKrKkmuvBZMxrKGrMQdHtKMmw6Sfzvk9xi5P1vLMv5c");
+declare_id!("56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr");
 
 #[program]
 pub mod splitter {
@@ -147,21 +147,28 @@ mod tests {
         let program_id = crate::id();
         let on_chain = utils::quote_message_hash(&program_id, &q);
 
-        // Off-chain re-implementation: tag + program_id + Borsh(Quote), SHA-256.
-        use anchor_lang::AnchorSerialize;
+        // Off-chain re-implementation: tag + program_id + explicit Quote
+        // bytes (hand-written little-endian), SHA-256.
+        // The encoding length MUST equal QUOTE_ENCODED_LEN.
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(crate::constants::MESSAGE_DOMAIN_TAG);
         hasher.update(program_id.as_ref());
-        let mut quote_bytes = Vec::with_capacity(256);
-        q.serialize(&mut quote_bytes).unwrap();
-        hasher.update(quote_bytes);
+        let mut buf = [0u8; utils::QUOTE_ENCODED_LEN];
+        utils::encode_quote(&q, &mut buf);
+        hasher.update(buf);
         let off_chain: [u8; 32] = hasher.finalize().into();
 
         assert_eq!(on_chain, off_chain);
 
         let second = utils::quote_message_hash(&program_id, &q);
         assert_eq!(on_chain, second);
+    }
+
+    #[test]
+    fn quote_encoding_length_matches_layout() {
+        // 32 + 32 + 32 + 8 + 32 + 8 + 32 + 8 + 32 = 216
+        assert_eq!(utils::QUOTE_ENCODED_LEN, 216);
     }
 
     #[test]

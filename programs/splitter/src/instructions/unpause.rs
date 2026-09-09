@@ -12,11 +12,15 @@ pub struct Unpause<'info> {
 
 pub fn handle_unpause(ctx: Context<Unpause>) -> Result<()> {
     let config = &mut ctx.accounts.config;
+    let caller = ctx.accounts.admin.key();
+    // SOL-MED-004: symmetric pause/unpause to remove the DoS lever a
+    // compromised pauser would otherwise hold. Both admin and pauser
+    // can pause; both can unpause.
     require!(
-        config.admin.eq(&ctx.accounts.admin.key()),
+        config.admin.eq(&caller) || config.pauser.eq(&caller),
         ErrorCode::Unauthorized
     );
     config.is_paused = false;
-    msg!("Splitter unpaused by {}", ctx.accounts.admin.key());
+    msg!("Splitter unpaused by {}", caller);
     Ok(())
 }
