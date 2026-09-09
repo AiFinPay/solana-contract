@@ -128,10 +128,10 @@ log "=== PDA Rent Exemption ==="
 CONFIG_SIZE=234
 # TokenList: 8 + 32 (admin) + 4 (vec len) + 16 * 32 (tokens) + 1 (bump) = 557
 TOKEN_LIST_SIZE=557
-# ProfilesIndex: 8 + 4 (vec len) + 32 * 77 (entries) + 1 (count) + 1 (bump) = 2470
+# ProfilesIndex: 8 + (4 (vec len) + 32 * 77 (entries) + 1 (count) + 1 (bump)) = 2478
 # RouteProfileEntry: 32 (route_id) + 2 (treasury_bps) + 2 (ip_creator_bps) +
 #                    1 (enabled) + 8 (configured_at) + 32 (route_treasury) = 77
-PROFILES_SIZE=2470
+PROFILES_SIZE=2478
 
 CONFIG_RENT=$(compute_rent "$CONFIG_SIZE")
 TOKEN_LIST_RENT=$(compute_rent "$TOKEN_LIST_SIZE")
