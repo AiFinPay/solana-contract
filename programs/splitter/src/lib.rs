@@ -620,4 +620,139 @@ mod tests {
         // route_id: 184..216
         assert_eq!(&buf[184..216], &[0xBB; 32]);
     }
+
+    #[test]
+    fn token_list_is_allowed_matches_membership() {
+        let mint_a = Pubkey::new_unique();
+        let mint_b = Pubkey::new_unique();
+        let other = Pubkey::new_unique();
+
+        let empty = TokenList {
+            admin: Pubkey::new_unique(),
+            tokens: vec![],
+            bump: 255,
+        };
+        assert!(!empty.is_allowed(mint_a));
+
+        let list = TokenList {
+            admin: Pubkey::new_unique(),
+            tokens: vec![mint_a, mint_b],
+            bump: 255,
+        };
+        assert!(list.is_allowed(mint_a));
+        assert!(list.is_allowed(mint_b));
+        assert!(!list.is_allowed(other));
+        // Default pubkey is never implicitly allowed.
+        assert!(!list.is_allowed(Pubkey::default()));
+    }
+
+    #[test]
+    fn find_route_profile_returns_entry_or_unknown_route() {
+        let entry = RouteProfileEntry {
+            route_id: ROUTE_AGENT_X402,
+            treasury_bps: 0,
+            ip_creator_bps: 0,
+            enabled: true,
+            configured_at: 0,
+            route_treasury: Pubkey::default(),
+        };
+        let entries = vec![entry];
+
+        let found = utils::find_route_profile(&entries, &ROUTE_AGENT_X402).unwrap();
+        assert_eq!(found.route_id, ROUTE_AGENT_X402);
+
+        let expected: anchor_lang::error::Error = error::ErrorCode::UnknownRoute.into();
+        let err = utils::find_route_profile(&entries, &ROUTE_MERCHANT_AIFP1);
+        assert!(matches!(err, Err(e) if e == expected));
+
+        let err = utils::find_route_profile(&[], &ROUTE_AGENT_X402);
+        assert!(matches!(err, Err(e) if e == expected));
+    }
+
+    #[test]
+    fn split_gross_supports_ip_only_route() {
+        // Zero treasury, 0.5% IP creator: merchant keeps the rest.
+        let profile = RouteProfileEntry {
+            route_id: ROUTE_AGENT_X402,
+            treasury_bps: 0,
+            ip_creator_bps: 50,
+            enabled: true,
+            configured_at: 0,
+            route_treasury: Pubkey::default(),
+        };
+        let ip_creator = Pubkey::new_unique();
+        let (m, t, i) = utils::split_gross(1_000_000, &profile, &ip_creator).unwrap();
+        assert_eq!(t, 0);
+        assert_eq!(i, 5_000);
+        assert_eq!(m, 995_000);
+        assert_eq!(m + t + i, 1_000_000);
+    }
+
+    #[test]
+    fn split_gross_rejects_fees_exceeding_gross() {
+        // 200% treasury fee overflows the merchant leg -> FeeExceedsGross.
+        // (Fee caps are enforced at init-time, not split-time.)
+        let profile = RouteProfileEntry {
+            route_id: ROUTE_MERCHANT_AIFP1,
+            treasury_bps: 20_000,
+            ip_creator_bps: 0,
+            enabled: true,
+            configured_at: 0,
+            route_treasury: Pubkey::default(),
+        };
+        let err = utils::split_gross(1_000_000, &profile, &Pubkey::default()).unwrap_err();
+        let expected: anchor_lang::error::Error = error::ErrorCode::FeeExceedsGross.into();
+        assert_eq!(err, expected);
+    }
+
+    #[test]
+    fn digest_alias_matches_quote_message_hash() {
+        let q = Quote {
+            payer: Pubkey::new_unique(),
+            merchant: Pubkey::new_unique(),
+            token: Pubkey::default(),
+            gross_amount: 42,
+            ip_creator: Pubkey::default(),
+            valid_until: i64::MAX,
+            order_id_hash: [7u8; 32],
+            nonce: 3,
+            route_id: ROUTE_MERCHANT_AIFP1,
+        };
+        let program_id = crate::id();
+        assert_eq!(
+            utils::digest(&program_id, &q),
+            utils::quote_message_hash(&program_id, &q)
+        );
+    }
+
+    #[test]
+    fn hashv_matches_manual_sha256_and_is_order_sensitive() {
+        use sha2::{Digest, Sha256};
+
+        let a = [1u8; 32];
+        let b = [2u8; 8];
+        let got = utils::hashv(&[&a, &b]);
+
+        let mut hasher = Sha256::new();
+        hasher.update(a);
+        hasher.update(b);
+        let want: [u8; 32] = hasher.finalize().into();
+        assert_eq!(got, want);
+
+        // Order matters: swapping inputs must change the digest.
+        assert_ne!(got, utils::hashv(&[&b, &a]));
+        // Content matters.
+        assert_ne!(got, utils::hashv(&[&a, &[3u8; 8]]));
+    }
+
+    #[test]
+    fn error_codes_are_pinned_for_idl_compat() {
+        // Anchor numbers #[error_code] from 6000 in declaration order
+        // (via `From<ErrorCode> for u32`; the raw discriminants are 0-based).
+        // New variants MUST be appended, never inserted or reordered.
+        let code = |e: error::ErrorCode| -> u32 { e.into() };
+        assert_eq!(code(error::ErrorCode::Unauthorized), 6000);
+        assert_eq!(code(error::ErrorCode::InvalidDeployer), 6035);
+        assert_eq!(code(error::ErrorCode::InvalidRecoveryId), 6047);
+    }
 }

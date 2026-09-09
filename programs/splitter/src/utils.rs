@@ -42,7 +42,7 @@ pub struct TreasuryUpdated {
 /// SHA-256 over the concatenation of `vals` — byte-identical to the
 /// retired `solana_program::hash::hashv`. Kept as a helper so digest
 /// outputs (and off-chain signing compatibility) never change.
-fn hashv(vals: &[&[u8]]) -> [u8; 32] {
+pub(crate) fn hashv(vals: &[&[u8]]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     for v in vals {
         hasher.update(v);
