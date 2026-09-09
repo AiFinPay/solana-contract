@@ -42,6 +42,105 @@ The CI pipeline in `.github/workflows/ci.yml` runs all four checks
 (formatting, tests, clippy, SBF build) on every PR and push to `main` /
 `dev`.
 
+## Deploy with Ledger
+
+Before using a Ledger for deployment:
+
+1. Close Ledger Live.
+2. Connect the Ledger via USB, unlock it, and open the **Solana** app
+   (device must show "Application is ready").
+3. Make sure the deployer account on the Ledger is funded with SOL on the
+   target cluster.
+
+Check the wallet address that will pay for deployment:
+
+```bash
+# default derivation path (key=0)
+solana-keygen pubkey usb://ledger?key=0
+```
+
+If you have several Ledger devices, use a fully-qualified keypair URL:
+
+```bash
+# resolve the signer URL first
+solana resolve-signer usb://ledger?key=0/0
+# example output (wallet IDs vary):
+# usb://ledger/BsNsvfXqQTtJnagwFWdBS7FBXgnsK8VZ5CmuznN85swK?key=0/0
+```
+
+Build the program binary:
+
+```bash
+cargo build-sbf --package splitter
+```
+
+### Deploy the program binary
+
+Ledger is only used to **sign the deployment transactions**; the program
+keypair must still be a normal Solana keypair file (Ledger cannot expose
+the private key needed by `solana program deploy`). Generate the program
+keypair locally:
+
+```bash
+solana-keygen new --no-passphrase -s -o target/deploy/splitter-keypair.json
+```
+
+Then deploy, passing the Ledger URL as the deployer signer:
+
+```bash
+solana program deploy target/deploy/splitter.so \
+  --program-id target/deploy/splitter-keypair.json \
+  --keypair usb://ledger?key=0 \
+  --url https://api.devnet.solana.com
+```
+
+Approve each transaction on the Ledger when prompted. The command prints
+program ID and deployment signature.
+
+### Initialize with the deployer keypair on Ledger
+
+The deployer (`DEPLOYER` constant) must match the Ledger address used for
+`initialize`. If the program ID is the canonical one, use the TS helper
+script with the Ledger keypair URL exported as `DEPLOYER_KEYPAIR`:
+
+```bash
+export DEPLOYER_KEYPAIR="usb://ledger?key=0"
+export CLUSTER="devnet"
+# required env vars for initialize-devnet-splitter.ts
+export ADMIN_PUBKEY="<admin solana address>"
+export PAUSER_PUBKEY="<pauser solana address>"
+export TREASURY_PUBKEY="<treasury solana address>"
+export SIGNER_ETH_PUBKEY="<secp256k1 uncompressed 64-byte hex (no 0x)>"
+export STABLECOINS="[<comma-separated mint pubkeys>]"
+export ROUTE_IDS='["<route_id_hex_1>","<route_id_hex_2>"]'
+export TREASURY_BPS='[<bps list>]'
+export IP_CREATOR_BPS='[<bps list>]'
+
+pnpm exec ts-node scripts/initialize-devnet-splitter.ts
+```
+
+Approve the transaction on the Ledger when prompted.
+
+### Useful Ledger commands
+
+```bash
+# show balance of the Ledger deployer account
+solana balance <DEPLOYER_ADDRESS> --url https://api.devnet.solana.com
+
+# airdrop on devnet (if the faucet is available)
+solana airdrop 2 <DEPLOYER_ADDRESS> --url https://api.devnet.solana.com
+
+# close a deployed program (recovers rent), signed by Ledger
+solana program close <PROGRAM_ID> \
+  --keypair usb://ledger?key=0 \
+  --url https://api.devnet.solana.com \
+  --bypass-warning
+```
+
+> **Note for zsh users:** the `?` in `usb://ledger?key=0` is interpreted by
+> zsh. Either escape it (`usb://ledger\?key=0`) or disable zsh globbing:
+> `unsetopt nomatch`.
+
 ## Overview
 
 Two canonical Anchor **v1.1.2** programs:
