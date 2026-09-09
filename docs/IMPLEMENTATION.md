@@ -82,6 +82,15 @@ root level (`Cargo.toml` with `members = ["programs/*"]`).
 - [x] **CI working-directory** — `.github/workflows/ci.yml` was updated
       to run from the repo root; the workspace members live under
       `programs/`. Verify on next CI run.
+- [x] **Off-chain signer backend** — `scripts/signer/` ships the
+      production quote-signing module: `quote.ts` (digest mirror),
+      `signer.ts` (`SignerBackend` port + dev-only local adapter;
+      KMS adapter is the documented extension point),
+      `rotate-signer-role.ts` (one-admin-tx hot-key rotation).
+      TS↔Rust digest parity is pinned both sides
+      (`digest_fixture_for_ts_parity` in `lib.rs`,
+      `pnpm test:signer`). No Ledger-per-quote needed: the cold
+      admin authorizes the hot key once.
 - [ ] **Stable-settlement integration test** — only the `initialize`
       flow is covered by `litesvm` today. Add a positive and a negative
       `settle_stable` test once test keypairs are generated.

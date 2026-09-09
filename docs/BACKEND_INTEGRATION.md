@@ -245,7 +245,7 @@ export function signQuote(digest: Buffer, privateKey: Buffer): Buffer {
 function isHighS(s: Uint8Array): boolean {
   // Half secp256k1 curve order N, big-endian
   const HALF_N = Buffer.from(
-    "7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDDFE92F46681B20A0",
+    "7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0",
     "hex",
   );
   for (let i = 0; i < 32; i++) {
