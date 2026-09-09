@@ -17,11 +17,13 @@
 #
 # Usage:
 #   ./mainnet-deploy.sh [--program <name>] [--keypair <path|ledger-url>]
-#                       [--program-keypair <path>] [--url <rpc_url>]
-#                       [--yes] [--skip-build]
+#                       [--deployer <base58-pubkey>] [--program-keypair <path>]
+#                       [--url <rpc_url>] [--yes] [--skip-build]
 #
 # Before running:
-#   1. Set DEPLOYER in programs/splitter/src/constants.rs to the Ledger address.
+#   1. Provide DEPLOYER via --deployer or SPLITTER_DEPLOYER env (preferred:
+#      no code change — build.rs bakes it into the binary). Legacy manual
+#      edit of programs/splitter/src/constants.rs still works.
 #   2. Fund the Ledger wallet with at least ~3 SOL (program rent + margin).
 #   3. Connect the Ledger, unlock it, and open the Solana app.
 
@@ -43,6 +45,7 @@ PLACEHOLDER_DEPLOYER_FP="0xDE, 0xA0, 0xD0, 0xBE"
 PROGRAM_NAME="splitter"
 KEYPAIR_DIR="$PROJECT_ROOT/keypairs"
 DEPLOYER_KEYPAIR="usb://ledger"
+DEPLOYER_OVERRIDE="${SPLITTER_DEPLOYER:-}"
 PROGRAM_KEYPAIR="$KEYPAIR_DIR/splitter-keypair.json"
 SOLANA_URL="https://api.mainnet-beta.solana.com"
 CONFIRM="ask"
@@ -57,6 +60,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --keypair)
             DEPLOYER_KEYPAIR="$2"
+            shift 2
+            ;;
+        --deployer)
+            DEPLOYER_OVERRIDE="$2"
             shift 2
             ;;
         --program-keypair)
@@ -77,10 +84,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             echo "Usage: $0 [--program <program_name>] [--keypair <path|ledger-url>]"
-            echo "           [--program-keypair <path>] [--url <rpc_url>] [--yes] [--skip-build]"
+            echo "           [--deployer <base58-pubkey>] [--program-keypair <path>]"
+            echo "           [--url <rpc_url>] [--yes] [--skip-build]"
             echo "  --program         Program name under programs/ (default: splitter)"
             echo "  --keypair         Deployer signer: Ledger URL (default: usb://ledger)"
             echo "                    or a file keypair path, e.g. usb://ledger?key=0"
+            echo "  --deployer        On-chain DEPLOYER baked into the binary (base58)."
+            echo "                    Same as SPLITTER_DEPLOYER env. No code change needed."
+            echo "                    Defaults to \$SPLITTER_DEPLOYER when the flag is absent."
             echo "  --program-keypair Canonical program keypair (default: keypairs/splitter-keypair.json)"
             echo "  --url             Solana cluster RPC URL (default: https://api.mainnet-beta.solana.com)"
             echo "  --yes             Skip the DEPLOY-MAINNET confirmation prompt"
@@ -89,7 +100,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--program <program_name>] [--keypair <path|ledger-url>] [--url <rpc_url>] [--yes] [--skip-build]"
+            echo "Usage: $0 [--program <program_name>] [--keypair <path|ledger-url>] [--deployer <base58-pubkey>] [--url <rpc_url>] [--yes] [--skip-build]"
             exit 1
             ;;
     esac
@@ -134,14 +145,29 @@ if ! grep -q "declare_id!(\"$CANONICAL_PROGRAM_ID\")" "$LIB_RS"; then
 fi
 log "Canonical program ID confirmed: $CANONICAL_PROGRAM_ID"
 
-# --- Guard 2: placeholder DEPLOYER must be replaced before building. ---
-if grep -q "$PLACEHOLDER_DEPLOYER_FP" "$CONSTANTS_RS"; then
+# --- Guard 2: DEPLOYER must be real (flag/env override or manual edit). ---
+# Preferred path (no code change): --deployer <base58> or SPLITTER_DEPLOYER
+# env. build.rs bakes it into the binary at build time. Legacy path: a
+# manual constants.rs edit that removed the placeholder bytes.
+if [[ -n "$DEPLOYER_OVERRIDE" ]]; then
+    export SPLITTER_DEPLOYER="$DEPLOYER_OVERRIDE"
+    if [[ "$SPLITTER_DEPLOYER" == "11111111111111111111111111111111" ]]; then
+        log "ABORT: SPLITTER_DEPLOYER is the default (all-zero) pubkey."
+        exit 1
+    fi
+    log "DEPLOYER override : $SPLITTER_DEPLOYER (baked via build.rs, no code change)"
+elif grep -q "$PLACEHOLDER_DEPLOYER_FP" "$CONSTANTS_RS"; then
     log "ABORT: placeholder DEPLOYER bytes still present in $CONSTANTS_RS."
-    log "Set DEPLOYER to the real Ledger (or multisig) address and rebuild:"
+    log "Pass the real Ledger (or multisig) address without editing code:"
+    log "  $0 --deployer <BASE58_PUBKEY> --keypair \"$DEPLOYER_KEYPAIR\""
+    log "or:"
+    log "  SPLITTER_DEPLOYER=<BASE58_PUBKEY> $0 --keypair \"$DEPLOYER_KEYPAIR\""
+    log "Legacy alternative: edit DEPLOYER in $CONSTANTS_RS, then rebuild:"
     log "  cargo build-sbf --manifest-path $PROGRAM_MANIFEST"
     exit 1
+else
+    log "DEPLOYER placeholder absent from constants.rs (verify the address manually!)."
 fi
-log "DEPLOYER placeholder absent from constants.rs (verify the address manually!)."
 
 # --- Resolve the deployer signer (Ledger URL or file). ---
 if [[ "$DEPLOYER_KEYPAIR" == usb://* ]]; then
@@ -157,6 +183,11 @@ else
     DEPLOYER_PUBKEY=$(solana-keygen pubkey "$DEPLOYER_KEYPAIR")
 fi
 log "Deployer wallet : $DEPLOYER_PUBKEY"
+if [[ -n "${SPLITTER_DEPLOYER:-}" && "$SPLITTER_DEPLOYER" != "$DEPLOYER_PUBKEY" ]]; then
+    log "WARNING: baked DEPLOYER ($SPLITTER_DEPLOYER) != signer wallet ($DEPLOYER_PUBKEY)."
+    log "WARNING: initialize must be signed by the baked DEPLOYER. Mismatch is only"
+    log "WARNING: valid for a multisig/authority-split setup — double-check before proceeding."
+fi
 
 # --- Balance check (by address, so Ledgers are not prompted). ---
 BALANCE=$(solana balance "$DEPLOYER_PUBKEY" --url "$SOLANA_URL" 2>&1 | awk '{print $1}')
@@ -183,7 +214,12 @@ else
     fi
     log "Building $PROGRAM_NAME (SBF)..."
     cd "$PROJECT_ROOT"
-    cargo build-sbf --manifest-path "$PROGRAM_MANIFEST"
+    if [[ -n "${SPLITTER_DEPLOYER:-}" ]]; then
+        log "Baking SPLITTER_DEPLOYER=$SPLITTER_DEPLOYER into the binary."
+        SPLITTER_DEPLOYER="$SPLITTER_DEPLOYER" cargo build-sbf --manifest-path "$PROGRAM_MANIFEST"
+    else
+        cargo build-sbf --manifest-path "$PROGRAM_MANIFEST"
+    fi
 fi
 
 PROGRAM_SIZE=$(stat -f%z "$PROGRAM_SO" 2>/dev/null || stat -c%s "$PROGRAM_SO")

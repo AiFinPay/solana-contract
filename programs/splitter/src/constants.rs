@@ -43,12 +43,21 @@ pub const CONSUMED_NONCE_SEED: &[u8] = b"consumed-nonce";
 pub const PROFILES_INDEX_SEED: &[u8] = b"profiles-index";
 
 /// Authorized deployer. This pubkey is the only signer allowed to call `initialize`.
-/// MUST be set to the real deployer/multisig pubkey before mainnet deployment.
-/// CI guard: build.rs fails the build if this equals `Pubkey::default()`.
-/// The bytes below are the placeholder deployer multisig
-/// (`DEPLOYERmXsG4qfz9rYp9Vc4Qv7Vz3aqCnLhVtNkRwSjTbU`) and MUST be
-/// replaced before mainnet deployment.
-pub const DEPLOYER: Pubkey = Pubkey::new_from_array([
+///
+/// Build-time override (no code change needed):
+///   SPLITTER_DEPLOYER=<base58-pubkey> cargo build-sbf --package splitter
+/// `build.rs` bakes `$SPLITTER_DEPLOYER` into the binary when set; otherwise
+/// the placeholder below is used (local tests only — mainnet deploys abort
+/// unless the override is provided).
+/// CI guard: the binary fails `initialize` if DEPLOYER equals
+/// `Pubkey::default()`.
+/// The fallback bytes below are the placeholder deployer multisig
+/// (`DEPLOYERmXsG4qfz9rYp9Vc4Qv7Vz3aqCnLhVtNkRwSjTbU`) and MUST NOT ship
+/// to mainnet without the `SPLITTER_DEPLOYER` override.
+#[allow(dead_code)]
+const PLACEHOLDER_DEPLOYER_BYTES: [u8; 32] = [
     0xDE, 0xA0, 0xD0, 0xBE, 0x57, 0x14, 0x59, 0xCC, 0x1D, 0xDE, 0xE5, 0x53, 0xA1, 0x57, 0x29, 0x6B,
     0x17, 0xD0, 0x8F, 0x8F, 0x6B, 0x42, 0xC2, 0x6B, 0x35, 0x70, 0x2F, 0xC4, 0xB4, 0x00, 0x00, 0x01,
-]);
+];
+
+include!(concat!(env!("OUT_DIR"), "/splitter_deployer.rs"));
