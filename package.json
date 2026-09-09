@@ -7,7 +7,13 @@
 		"initialize:devnet": "node target/scripts/initialize-devnet-splitter.js",
 		"build:initialize-devnet": "tsc scripts/devnet/initialize-devnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
 		"configure:devnet": "node target/scripts/configure-route.js",
-		"build:configure-devnet": "tsc scripts/devnet/configure-route.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts"
+		"build:configure-devnet": "tsc scripts/devnet/configure-route.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"check:mainnet": "node target/scripts/check-mainnet-splitter.js",
+		"build:check-mainnet": "tsc scripts/mainnet/check-mainnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"initialize:mainnet": "node target/scripts/initialize-mainnet-splitter.js",
+		"build:initialize-mainnet": "tsc scripts/mainnet/initialize-mainnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"configure:mainnet": "node target/scripts/configure-mainnet-route.js",
+		"build:configure-mainnet": "tsc scripts/mainnet/configure-mainnet-route.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts"
 	},
 	"devDependencies": {
 		"@coral-xyz/anchor": "^0.32.1",

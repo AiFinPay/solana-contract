@@ -1,4 +1,17 @@
-node_modules
-keypairs
+.anchor
+.DS_Store
 target
+**/*.rs.bk
+node_modules
+test-ledger
+.yarn
+.surfpool
+# No secrets in this repo
+*.json.bak
 .env
+.env.production
+keypairs/
+private_keys.txt
+agents_config.json
+.idea
+.vscode
