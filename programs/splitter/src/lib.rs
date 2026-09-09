@@ -424,14 +424,12 @@ mod tests {
         // rejected by recover_signer before calling the syscall.
         sig_65[64] = 26;
         let err = utils::recover_signer(&digest, &sig_65).unwrap_err();
-        let expected: anchor_lang::error::Error =
-            error::ErrorCode::InvalidSignature.into();
+        let expected: anchor_lang::error::Error = error::ErrorCode::InvalidSignature.into();
         assert_eq!(err, expected);
 
         sig_65[64] = 29;
         let err = utils::recover_signer(&digest, &sig_65).unwrap_err();
-        let expected: anchor_lang::error::Error =
-            error::ErrorCode::InvalidRecoveryId.into();
+        let expected: anchor_lang::error::Error = error::ErrorCode::InvalidRecoveryId.into();
         assert_eq!(err, expected);
     }
 
@@ -486,24 +484,25 @@ mod tests {
             // k256 happened to produce a non-canonical (high-s) signature:
             // the original itself must be rejected by the EIP-2 check.
             let err = utils::recover_signer(&digest, &sig_65).unwrap_err();
-            let expected: anchor_lang::error::Error =
-                error::ErrorCode::InvalidSignature.into();
+            let expected: anchor_lang::error::Error = error::ErrorCode::InvalidSignature.into();
             assert_eq!(err, expected);
         } else {
             // Sanity: the canonical (low-s) signature is accepted.
-            let expected_pubkey: [u8; 64] =
-                signing_key.verifying_key().to_encoded_point(false).as_bytes()[1..]
-                    .try_into()
-                    .unwrap();
+            let expected_pubkey: [u8; 64] = signing_key
+                .verifying_key()
+                .to_encoded_point(false)
+                .as_bytes()[1..]
+                .try_into()
+                .unwrap();
             let recovered = utils::recover_signer(&digest, &sig_65).unwrap();
             assert_eq!(recovered, expected_pubkey);
 
             // Malleate: s' = N - s (big-endian). The result is necessarily
             // high-s and must be rejected before the recovery syscall.
             const N: [u8; 32] = [
-                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                0xFF, 0xFF, 0xFE, 0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B, 0xBF, 0xD2,
-                0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41,
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xFF, 0xFE, 0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B, 0xBF, 0xD2, 0x5E, 0x8C,
+                0xD0, 0x36, 0x41, 0x41,
             ];
             let mut s_neg = [0u8; 32];
             let mut borrow: i16 = 0;
@@ -516,8 +515,7 @@ mod tests {
 
             sig_65[32..64].copy_from_slice(&s_neg);
             let err = utils::recover_signer(&digest, &sig_65).unwrap_err();
-            let expected: anchor_lang::error::Error =
-                error::ErrorCode::InvalidSignature.into();
+            let expected: anchor_lang::error::Error = error::ErrorCode::InvalidSignature.into();
             assert_eq!(err, expected);
         }
     }
