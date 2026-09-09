@@ -39,11 +39,6 @@ distinct HSMs / cold wallets operated by independent parties. Compromise
 of two of the three is required for catastrophic damage; loss of any
 single key is recoverable via rotation.
 
-`splitter_light` is an exception: it has no `admin` or `pauser`. The only
-privileged role is the secp256k1 `signer`, which can rotate itself via ECDSA
-signatures over a binding digest. Loss or compromise of that key is
-irrecoverable on-chain; see `programs/splitter_light/AGENTS.md`.
-
 ### Out of scope
 
 - Bugs in the Solana runtime.
@@ -105,18 +100,6 @@ These properties are checked by `cargo test` and MUST remain green:
 5. Confirm `quote_total` returns the expected splits for a dry-run quote
    before opening the program to live traffic.
 
-#### `splitter_light`
-
-1. `cargo build-sbf --package splitter_light` produces
-   `target/deploy/splitter_light.so`.
-2. Verify the declared program ID matches
-   `7vGTUXSmooih99MuzQELyaeFeZmuo4QcstS7T9Jv7yyR`.
-3. Replace `PROTOCOL_TREASURY` and `INITIAL_SIGNER` placeholders with real
-   mainnet values before building.
-4. Run `set_signer` once from the bootstrap `INITIAL_SIGNER` key to install
-   the operational signer.
-5. Confirm a dry-run `settle_native` quote returns the expected splits.
-
 ### Incident response
 
 - If a bug is reported, **pause immediately** via `pause` (admin or
@@ -137,16 +120,6 @@ recent audit report.
 If you are running a fork of this code, you are responsible for your own
 audit trail. See `CONTRIBUTING.md` for the review expectations that apply
 to changes in this repo.
-
-### Key handling for `splitter_light`
-
-- The `INITIAL_SIGNER` placeholder in `constants.rs` is the secp256k1
-  generator point (private key = 1). It is **only** safe for local testing.
-- Before mainnet, replace `INITIAL_SIGNER` with the deployer's own
-  uncompressed secp256k1 public key and replace `PROTOCOL_TREASURY` with a
-  real protocol wallet.
-- After deployment, immediately call `set_signer` to rotate away from the
-  bootstrap key.
 
 ## Safe Integer Math
 

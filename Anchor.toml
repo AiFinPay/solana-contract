@@ -8,10 +8,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-splitter = "BrKrKkmuvBZMxrKGrMQdHtKMmw6Sfzvk9xi5P1vLMv5c"
+splitter = "DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS"
 
 [programs.devnet]
-splitter = "BrKrKkmuvBZMxrKGrMQdHtKMmw6Sfzvk9xi5P1vLMv5c"
+splitter = "DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS"
 
 
 [provider]

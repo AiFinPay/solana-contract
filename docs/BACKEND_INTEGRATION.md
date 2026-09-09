@@ -9,7 +9,7 @@ settlements with secp256k1 off-chain signature verification.
 
 | Field | Value |
 |---|---|
-| Program ID | `56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr` |
+| Program ID | `DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS` |
 | Version | `1.4.0` |
 | Devnet | Deployed (2026-09-03) |
 | Domain Tag | `AiFinPay-Solana-v1.4` |
@@ -38,7 +38,7 @@ import { PublicKey } from "@solana/web3.js";
 // ---------------------------------------------------------------------------
 // Program
 // ---------------------------------------------------------------------------
-export const PROGRAM_ID = new PublicKey("56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr");
+export const PROGRAM_ID = new PublicKey("DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS");
 
 // ---------------------------------------------------------------------------
 // Domain tag (bytes, NOT a string — used as raw prefix in SHA-256)

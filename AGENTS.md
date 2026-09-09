@@ -47,7 +47,7 @@ scripts/              # Deployment / utility scripts
 
 ## Architecture Notes
 
-- Program ID: `56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr`
+- Program ID: `DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS`
 - Uses `anchor-lang` 1.1.2 with `init-if-needed` feature
 - Uses `anchor-spl` with token feature for SPL token operations
 - Tests use `litesvm` (Solana program unit test framework), NOT Anchor's JS test harness

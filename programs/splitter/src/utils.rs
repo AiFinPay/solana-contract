@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use sha2::{Digest, Sha256};
 
 use crate::{
     constants::{BPS_DENOMINATOR, MAX_QUOTE_LIFETIME_SECONDS, MESSAGE_DOMAIN_TAG},
@@ -38,12 +39,23 @@ pub struct TreasuryUpdated {
 ///   extended,
 /// - SHA-256 (Solana's native hash function).
 ///
+/// SHA-256 over the concatenation of `vals` — byte-identical to the
+/// retired `solana_program::hash::hashv`. Kept as a helper so digest
+/// outputs (and off-chain signing compatibility) never change.
+fn hashv(vals: &[&[u8]]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    for v in vals {
+        hasher.update(v);
+    }
+    hasher.finalize().into()
+}
+
 /// Field order MUST match the EVM v1.4 abi.encode(quote) layout.
 /// DO NOT REORDER. This is a cross-chain sacred constant.
 pub fn quote_message_hash(program_id: &Pubkey, quote: &Quote) -> [u8; 32] {
     let mut buf = [0u8; QUOTE_ENCODED_LEN];
     encode_quote(quote, &mut buf);
-    solana_program::hash::hashv(&[MESSAGE_DOMAIN_TAG, program_id.as_ref(), &buf]).to_bytes()
+    hashv(&[MESSAGE_DOMAIN_TAG, program_id.as_ref(), &buf])
 }
 
 /// Canonical digest exposed for tests and off-chain signing compatibility.
@@ -248,7 +260,7 @@ pub fn emit_payment(
     treasury_amt: u64,
     ip_amt: u64,
 ) -> Result<()> {
-    let payment_id = solana_program::hash::hashv(&[
+    let payment_id = hashv(&[
         quote.payer.as_ref(),
         quote.merchant.as_ref(),
         quote.token.as_ref(),
@@ -258,8 +270,7 @@ pub fn emit_payment(
         &quote.order_id_hash,
         &quote.nonce.to_le_bytes(),
         &quote.route_id,
-    ])
-    .to_bytes();
+    ]);
 
     emit!(Payment {
         payment_id,
