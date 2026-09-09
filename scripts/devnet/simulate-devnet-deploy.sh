@@ -137,7 +137,7 @@ log ""
 log "=== PDA Rent Exemption (devnet) ==="
 CONFIG_SIZE=234
 TOKEN_LIST_SIZE=557
-PROFILES_SIZE=2470
+PROFILES_SIZE=2478
 
 CONFIG_RENT=$(solana rent "$CONFIG_SIZE" --url "$SOLANA_URL" 2>&1 | grep "Rent-exempt minimum" | awk '{print $3}')
 TOKEN_LIST_RENT=$(solana rent "$TOKEN_LIST_SIZE" --url "$SOLANA_URL" 2>&1 | grep "Rent-exempt minimum" | awk '{print $3}')
