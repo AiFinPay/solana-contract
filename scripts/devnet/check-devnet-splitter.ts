@@ -2,8 +2,8 @@
 
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
-// Constants from the program
-const PROGRAM_ID = new PublicKey("BrKrKkmuvBZMxrKGrMQdHtKMmw6Sfzvk9xi5P1vLMv5c");
+// Program ID — read from SPLITTER_PROGRAM_ID env var, fall back to canonical ID
+const PROGRAM_ID = new PublicKey(process.env.SPLITTER_PROGRAM_ID || "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y");
 const CONFIG_SEED = Buffer.from("config");
 const TOKEN_LIST_SEED = Buffer.from("token-list");
 const PROFILES_INDEX_SEED = Buffer.from("profiles-index");

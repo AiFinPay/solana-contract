@@ -151,4 +151,14 @@ log "  1. Initialize the program via Anchor/CLI with the deployer keypair."
 log "  2. To close and recover rent later:"
 log "     solana program close $PROGRAM_ID --keypair $DEPLOYER_KEYPAIR --url devnet"
 log ""
+# Persist the deployed program ID for downstream scripts (initialize, configure, check).
+ENV_LOCAL="$PROJECT_ROOT/.env.local"
+if [[ -f "$ENV_LOCAL" ]]; then
+    sed -i "s/^SPLITTER_PROGRAM_ID=.*/SPLITTER_PROGRAM_ID=$PROGRAM_ID/" "$ENV_LOCAL" \
+        || echo "SPLITTER_PROGRAM_ID=$PROGRAM_ID" >> "$ENV_LOCAL"
+else
+    echo "SPLITTER_PROGRAM_ID=$PROGRAM_ID" > "$ENV_LOCAL"
+fi
+log "Wrote SPLITTER_PROGRAM_ID=$PROGRAM_ID to $ENV_LOCAL"
+
 log "Full log saved to: $DEPLOY_LOG"

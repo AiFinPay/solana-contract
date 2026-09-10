@@ -57,7 +57,7 @@ loadEnvFile(path.join(ROOT, ".env.local"), true);
 // ---------------------------------------------------------------------------
 // Constants (must match programs/splitter/src/constants.rs)
 // ---------------------------------------------------------------------------
-const PROGRAM_ID = address("BrKrKkmuvBZMxrKGrMQdHtKMmw6Sfzvk9xi5P1vLMv5c");
+const PROGRAM_ID = address(process.env.SPLITTER_PROGRAM_ID || "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y");
 const CONFIG_SEED = new TextEncoder().encode("config");
 const TOKEN_LIST_SEED = new TextEncoder().encode("token-list");
 const PROFILES_INDEX_SEED = new TextEncoder().encode("profiles-index");

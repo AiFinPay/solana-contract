@@ -65,12 +65,11 @@ function loadEnvFile(envPath: string, overwrite = false) {
 
 const ROOT = path.join(__dirname, "..", "..");
 loadEnvFile(path.join(ROOT, ".env.production"));
-loadEnvFile(path.join(ROOT, ".env.local"), true);
 
 // ---------------------------------------------------------------------------
 // Constants (must match programs/splitter/src/constants.rs; canonical mainnet ID)
 // ---------------------------------------------------------------------------
-const PROGRAM_ID = address("5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS");
+const PROGRAM_ID = address("8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y");
 const CONFIG_SEED = new TextEncoder().encode("config");
 const TOKEN_LIST_SEED = new TextEncoder().encode("token-list");
 const PROFILES_INDEX_SEED = new TextEncoder().encode("profiles-index");

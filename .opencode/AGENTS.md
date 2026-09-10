@@ -8,8 +8,6 @@ and `node_modules/@daochild/agents-config/AGENTS.md`.
 
 - Project: AiFinPay Solana Splitter v1.4
 - Canonical program: `programs/splitter/`
-- Non-canonical / removed: `splitter_light` must not be reintroduced without a
-  documented architectural decision and audit.
 
 ## Authority chain
 

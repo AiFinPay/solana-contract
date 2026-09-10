@@ -10,12 +10,17 @@ Deployment is designed for a **Ledger-held deployer**.
 | `calculate-deploy-cost.sh` | Estimate deploy + PDA rent | No (read-only) |
 | `calculate-initialize-cost.sh` | Estimate `initialize` cost | No (read-only) |
 | `simulate-mainnet-deploy.sh` | Throwaway deploy to measure real cost | YES (recoverable via close) |
+| `check-env.ts` | Pre-flight env var validation (no tx) | No |
 | `check-mainnet-splitter.ts` | Readiness check (program, PDAs, routes) | No |
 | `initialize-mainnet-splitter.ts` | `initialize` (file-keypair signing only) | YES (PDA rent) |
 | `configure-mainnet-route.ts` | `configure_route` for both routes (admin signs) | YES (fees) |
 
 ## Pre-flight (do once, in order)
 
+0. **Check env.** `npm run check:env:mainnet` verifies all required env vars
+   are set and valid before any mainnet operation. Pass a step name to check
+   only that step: `npm run check:env:mainnet -- deploy`,
+   `npm run check:env:mainnet -- initialize`, etc.
 1. **Set `DEPLOYER`.** Replace the placeholder in
    `programs/splitter/src/constants.rs` with the Ledger address that will
    deploy AND pay for `initialize` (`initialize` accepts no other payer).
