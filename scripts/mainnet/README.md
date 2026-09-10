@@ -1,7 +1,7 @@
 # Mainnet scripts — splitter v1.4
 
 Mirrors of `scripts/devnet/` pointed at mainnet-beta and the canonical
-program ID `DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS`.
+program ID `5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS`.
 Deployment is designed for a **Ledger-held deployer**.
 
 | Script | Purpose | Spends SOL? |

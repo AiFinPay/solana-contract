@@ -422,10 +422,6 @@ fn make_configure_args(
 
 #[test]
 fn configure_route_creates_new() {
-    // litesvm limitation: pushing a new entry into a pre-set Vec triggers
-    // an account realloc that faults in the SBF VM. The update-existing
-    // path (overwrite in-place) works fine and is tested separately.
-    // The instruction logic is also covered by the unit tests in lib.rs.
     let new_route = [0xAAu8; 32];
     let treasury = Pubkey::new_unique();
     let mut env = setup(&[]);
@@ -433,7 +429,11 @@ fn configure_route_creates_new() {
 
     let args = make_configure_args(new_route, 100, 50, treasury);
     let res = send_ix_with_profiles(&mut env, "configure_route", &args, &admin);
-    assert!(res.is_err(), "vec push realloc faults under litesvm");
+    assert!(res.is_ok(), "configure_route create failed: {res:?}");
+
+    let data = stored_profiles(&env);
+    let count = u32::from_le_bytes(data[8..12].try_into().unwrap());
+    assert_eq!(count, 2, "should now have 2 routes (default + new)");
 }
 
 #[test]

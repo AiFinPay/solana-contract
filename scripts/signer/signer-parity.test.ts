@@ -16,7 +16,7 @@ import { PublicKey } from "@solana/web3.js";
 import { computeDigest, encodeQuote, QUOTE_ENCODED_LEN, type Quote } from "./quote";
 import { LocalSignerBackend, recoverSigner, isHighS } from "./signer";
 
-const PROGRAM_ID = new PublicKey("DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS");
+const PROGRAM_ID = new PublicKey("5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS");
 
 // Byte-identical to the Rust fixture in digest_fixture_for_ts_parity.
 function fixtureQuote(): Quote {
@@ -38,7 +38,7 @@ function fixtureQuote(): Quote {
 }
 
 const PINNED_DIGEST_HEX =
-  "6c8b8e038900be62a18286bcb51db88ab1c9d52fcf6214069b7b6f16990476f0";
+  "611e97c5fa10b9adeb9f717837a715b9c281d6341d34a0a34facc9a33b71ff6b";
 
 describe("signer parity (TS vs Rust)", () => {
   it("encodes the quote to 216 bytes", () => {

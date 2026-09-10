@@ -11,7 +11,7 @@ pub use instructions::*;
 pub use state::*;
 pub use utils::*;
 
-declare_id!("DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS");
+declare_id!("5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS");
 
 #[program]
 pub mod splitter {
@@ -199,7 +199,7 @@ mod tests {
         // Pinned value — mirrors scripts/signer/signer-parity.test.ts.
         assert_eq!(
             hex,
-            "6c8b8e038900be62a18286bcb51db88ab1c9d52fcf6214069b7b6f16990476f0"
+            "611e97c5fa10b9adeb9f717837a715b9c281d6341d34a0a34facc9a33b71ff6b"
         );
     }
 

@@ -74,7 +74,7 @@ loadEnvFile(path.join(ROOT, ".env.local"), true);
 // ---------------------------------------------------------------------------
 // Constants (must match programs/splitter/src/{constants.rs,lib.rs})
 // ---------------------------------------------------------------------------
-const PROGRAM_ID = address("DPFAmcgGe7ZaLCRQAZ24Z9SJ8s5gaBWHHbKjLNWsWWBS");
+const PROGRAM_ID = address("5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS");
 const CONFIG_SEED = new TextEncoder().encode("config");
 
 // Anchor discriminators: sha256("global:<name>")[0..8].
