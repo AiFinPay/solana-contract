@@ -17,7 +17,7 @@ pub fn handle_rotate_pauser_role(ctx: Context<RotatePauserRole>, new_pauser: Pub
         ErrorCode::Unauthorized
     );
     require!(!new_pauser.eq(&Pubkey::default()), ErrorCode::ZeroPauser);
-    require!(!new_pauser.eq(&config.admin), ErrorCode::AdminEqualsSigner);
+    // No role-separation check: pauser may equal admin (single-multisig setup).
 
     ctx.accounts.config.pauser = new_pauser;
     msg!("Pauser role rotated");

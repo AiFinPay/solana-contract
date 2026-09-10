@@ -101,6 +101,10 @@ pub mod splitter {
         crate::instructions::rotate_pauser_role::handle_rotate_pauser_role(ctx, new_pauser)
     }
 
+    pub fn rotate_admin_role(ctx: Context<RotateAdminRole>, new_admin: Pubkey) -> Result<()> {
+        crate::instructions::rotate_admin_role::handle_rotate_admin_role(ctx, new_admin)
+    }
+
     pub fn quote_total(
         ctx: Context<QuoteTotal>,
         gross_amount: u64,
@@ -169,6 +173,34 @@ mod tests {
     fn quote_encoding_length_matches_layout() {
         // 32 + 32 + 32 + 8 + 32 + 8 + 32 + 8 + 32 = 216
         assert_eq!(utils::QUOTE_ENCODED_LEN, 216);
+    }
+
+    #[test]
+    fn digest_fixture_for_ts_parity() {
+        // Pinned fixture for the TypeScript signer
+        // (scripts/signer/signer-parity.test.ts). Fixed quote, fixed
+        // program id (declare_id). If this digest changes, the TS
+        // implementation MUST be updated in lockstep — the Quote field
+        // order is a cross-chain sacred constant.
+        let q = Quote {
+            payer: Pubkey::new_from_array([1u8; 32]),
+            merchant: Pubkey::new_from_array([2u8; 32]),
+            token: Pubkey::default(),
+            gross_amount: 1_000_000,
+            ip_creator: Pubkey::default(),
+            valid_until: 1_700_003_600,
+            order_id_hash: [7u8; 32],
+            nonce: 3,
+            route_id: ROUTE_MERCHANT_AIFP1,
+        };
+        let digest = utils::quote_message_hash(&crate::id(), &q);
+        let hex: String = digest.iter().map(|b| format!("{:02x}", b)).collect();
+        println!("TS_PARITY_DIGEST={}", hex);
+        // Pinned value — mirrors scripts/signer/signer-parity.test.ts.
+        assert_eq!(
+            hex,
+            "6c8b8e038900be62a18286bcb51db88ab1c9d52fcf6214069b7b6f16990476f0"
+        );
     }
 
     #[test]

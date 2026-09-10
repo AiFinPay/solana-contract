@@ -61,6 +61,7 @@ cargo clippy --package splitter --all-targets -- -D warnings
 | `enable_route` / `disable_route` | Toggle a route | admin |
 | `set_whitelisted_tokens` | Add/remove allowed SPL mints | admin |
 | `grant_signer_role` / `rotate_signer_role` | Set/rotate the secp256k1 signer | admin |
+| `rotate_admin_role` | Transfer admin to a new address | admin |
 | `grant_pauser_role` / `rotate_pauser_role` | Set/rotate the pauser | admin |
 
 ## Quote schema

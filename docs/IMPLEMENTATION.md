@@ -33,6 +33,7 @@ One program is in scope:
 | `set_whitelisted_tokens`|  ✅   | `instructions/set_whitelisted_tokens.rs` | — |
 | `grant_signer_role`     |  ✅   | `instructions/grant_signer_role.rs`      | — |
 | `rotate_signer_role`    |  ✅   | `instructions/rotate_signer_role.rs`     | — |
+| `rotate_admin_role`     |  ✅   | `instructions/rotate_admin_role.rs`      | — |
 | `grant_pauser_role`     |  ✅   | `instructions/grant_pauser_role.rs`      | — |
 | `rotate_pauser_role`    |  ✅   | `instructions/rotate_pauser_role.rs`     | — |
 

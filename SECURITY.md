@@ -37,7 +37,10 @@ unless anonymity is requested.
 The protocol assumes `admin`, `pauser`, and `signer` keys are held in
 distinct HSMs / cold wallets operated by independent parties. Compromise
 of two of the three is required for catastrophic damage; loss of any
-single key is recoverable via rotation.
+single key is recoverable via rotation. Deployments may consolidate
+`admin`, `pauser` and `treasury` on a single multisig vault — this is
+permitted by the program but weakens the assumption above to the security
+of that one vault.
 
 ### Out of scope
 
@@ -66,8 +69,9 @@ These properties are checked by `cargo test` and MUST remain green:
 3. **No zero-value splits** — `merchant_amt > 0`, and any non-zero
    `treasury_bps` / `ip_creator_bps` must produce a non-zero fee.
 4. **Fee-cap enforcement** — `treasury_bps <= 500`, `ip_creator_bps <= 100`.
-5. **No role overlap** — admin, pauser, and (first 32 bytes of) signer are
-   pairwise distinct.
+5. **No role overlap (operational, not on-chain)** — admin, pauser and
+   treasury SHOULD be distinct keys / vaults. The program permits them to
+   coincide (single-multisig deployments) and enforces no distinctness.
 6. **Pause enforcement** — `settle_native` and `settle_stable` reject
    while `is_paused`.
 7. **Cross-chain quote parity** — the `Quote` schema, route IDs, and fee

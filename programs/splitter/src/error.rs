@@ -64,8 +64,12 @@ pub enum ErrorCode {
     ZeroSigner,
     #[msg("Pauser address must be non-zero")]
     ZeroPauser,
+    // Legacy, no longer raised: role separation (admin/pauser/treasury
+    // distinctness) was removed — a single multisig may hold all roles.
+    // Kept in place so error codes after it keep their pinned numbers.
     #[msg("Pauser and signer must be distinct")]
     PauserEqualsSigner,
+    // Legacy, no longer raised (see above). Kept for pinned error codes.
     #[msg("Admin and signer/pauser must be distinct")]
     AdminEqualsSigner,
     #[msg("Admin address must be non-zero")]

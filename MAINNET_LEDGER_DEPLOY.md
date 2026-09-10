@@ -37,22 +37,18 @@ gross_amount
 | Pauser | Solana-гаманець | Тільки `pause` |
 | Deployer | Адреса, запечена в бінарник | Єдиний, хто може викликати one-shot `initialize` |
 
-Правила розділення — це hard on-chain require, не рекомендація
-(`programs/splitter/src/instructions/initialize.rs:82-95`):
+Правила ролей — on-chain обмежень роздільності **немає**
+(`programs/splitter/src/instructions/`):
 
-- при `initialize`: `admin`, `pauser`, `treasury` мусять бути **попарно різними**,
-  інакше транзакція відкотиться (`AdminEqualsSigner` / `PauserEqualsSigner`);
-- `grant/rotate_pauser_role` додатково вимагають `pauser != admin`;
-- secp256k1-`signer` on-chain **ні з чим не порівнюється** (стара перевірка
-  «перші 32 байти» видалена як dead code, див. коментар SOL-MED-006
-  в `grant_signer_role.rs:20-22` — X-координату secp256k1 не можна порівнювати
-  з ed25519-адресою; розділення signer — організаційне, out-of-band);
-- `set_treasury` перевіряє тільки non-zero, тому технічно treasury можна
-  змінити після ініціалізації, але це обхід захисту — не робити.
+- `admin`, `pauser`, `treasury` можуть бути однією адресою (наприклад,
+  єдиний Squads-мультисиг) — ні `initialize`, ні ротації цього не забороняють;
+- secp256k1-`signer` on-chain ні з чим не порівнюється;
+- `admin` змінюється поточним адміном через `rotate_admin_role`
+  (перевіряється тільки non-zero нової адреси);
+- `pauser`/`treasury`/`signer` ротуються адміном так само вільно.
 
-Практично для Squads-мультисига: `admin` = vault-адреса мультисига, а `pauser`
-і `treasury` — **інші** адреси (окремі vault'и або операційні гаманці).
-Усі три ролі на одній адресі `initialize` не прийме.
+Роздільність ролей лишається рекомендованою операційною політикою
+(компрометація єдиного сховища = повний контроль), але не вимогою коду.
 
 ### 1.3. Quote, дайджест, підпис
 
@@ -166,7 +162,7 @@ ROUTE_IDS=AGENT_X402,MERCHANT_AIFP1,
 TREASURY_BPS=0,100, IP_CREATOR_BPS=0,0
 ```
 
-Три RBAC-адреси мусять бути різними. `SIGNER_PUBKEY` згенеруй через `pnpm rotate:signer -- --generate ./hot-signer.hex` (файл 0600, потім імпортуй у KMS і видали).
+RBAC-адреси можуть збігатися (єдиний мультисиг — ок). `SIGNER_PUBKEY` згенеруй через `pnpm rotate:signer -- --generate ./hot-signer.hex` (файл 0600, потім імпортуй у KMS і видали).
 
 ### 2.2. Крок 0. Запечи DEPLOYER
 
@@ -236,7 +232,7 @@ pnpm build:check-mainnet && pnpm check:mainnet
 
 ### 2.9. Після запуску (операційка)
 
-Подальші admin-дії: `set_whitelisted_tokens`, `enable/disable_route`, `set_treasury`, `pause` (admin або pauser) / `unpause` (тільки admin), ротація pauser/signer через `grant/rotate_*_role` (див. 1.3).
+Подальші admin-дії: `set_whitelisted_tokens`, `enable/disable_route`, `set_treasury`, `pause` (admin або pauser) / `unpause` (тільки admin), ротація pauser/signer через `grant/rotate_*_role` (див. 1.3), передача admin через `rotate_admin_role` (підписує поточний admin, нова адреса — будь-яка non-zero, хоч той самий мультисиг). При Squads-адміні кожну таку дію проводити як Squads-пропозал з тим самим instruction-payload, що будують файлові скрипти.
 
 Апгрейд програми = повторний `mainnet-deploy.sh` тим самим upgrade-authority ключем. Відкат коду — тільки новий upgrade вперед; закриття програми (`solana program close`) повертає ренту, але знищує деплой.
 

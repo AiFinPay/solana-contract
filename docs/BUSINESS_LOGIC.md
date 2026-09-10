@@ -67,7 +67,8 @@ A quote can be settled **at most once**.
 
 There is exactly one signing authority (`Config.signer`). The same key
 signs every quote accepted by the program. Rotation is performed by the
-admin.
+admin. The admin itself is rotatable by the current admin
+(`rotate_admin_role`); pauser and treasury are rotatable the same way.
 
 ### R-2: Quotes are signed EIP-712-style
 
@@ -122,11 +123,13 @@ not require a re-init.
 `pause` may be invoked by either admin or pauser; `unpause` is admin
 only.
 
-### R-11: Role separation
+### R-11: Role overlap is permitted
 
-Admin, pauser, and the first 32 bytes of the secp256k1 signer must be
-pairwise distinct. This prevents a single compromised key from being
-able to simultaneously settle, pause, and recover the protocol.
+Admin, pauser and treasury MAY share one address (e.g. a single Squads
+multisig vault) — the program enforces no distinctness. Keeping them
+separate remains the recommended operational policy: it prevents a single
+compromised key from simultaneously controlling governance, emergency
+pause, and the fee flow.
 
 ### R-12: Native SOL is identified by `Pubkey::default()`
 

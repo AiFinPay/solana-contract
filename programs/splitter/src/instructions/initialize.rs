@@ -79,20 +79,10 @@ pub fn handle_initialize(ctx: Context<Initialize>, params: InitializeParams) -> 
         !params.treasury.eq(&Pubkey::default()),
         ErrorCode::ZeroTreasury
     );
-    require!(
-        !params.admin.eq(&params.pauser),
-        ErrorCode::AdminEqualsSigner
-    );
 
-    // Operational separation of roles: admin, pauser, and treasury must be distinct.
-    require!(
-        !params.admin.eq(&params.treasury),
-        ErrorCode::AdminEqualsSigner
-    );
-    require!(
-        !params.pauser.eq(&params.treasury),
-        ErrorCode::PauserEqualsSigner
-    );
+    // No role-separation check: admin, pauser and treasury may share one
+    // address (e.g. a single Squads multisig vault). Separation, if wanted,
+    // is an operational policy, not an on-chain invariant.
 
     let route_count = params.route_ids.len();
     require!(route_count > 0, ErrorCode::UnknownRoute);

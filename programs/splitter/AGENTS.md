@@ -80,10 +80,10 @@ upgrade:
 1. **DEPLOYER gating**: `initialize` is gated to the hardcoded `DEPLOYER`
    constant in production; the placeholder `Pubkey::default()` is only for
    local tests. Do not remove this gate without a documented replacement.
-2. **Role separation checks are weak by design**: comparing a secp256k1 X
-   coordinate to a Solana `Pubkey` is semantically meaningless. Treat
-   admin/pauser/signer separation as an **operational** invariant, not a
-   code invariant.
+2. **No on-chain role separation**: admin, pauser and treasury may share
+   one address (single-multisig deployments). Do not add distinctness
+   checks without a documented decision. Separation remains an
+   **operational** recommendation, not a code invariant.
 3. **Instruction wiring**: every new instruction needs three edits:
    - `src/instructions/<name>.rs`
    - `src/instructions.rs`

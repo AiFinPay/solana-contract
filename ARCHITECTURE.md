@@ -210,14 +210,15 @@ clients to display a price breakdown before the user signs.
 | `enable_route` / `disable_route`  |   ✓   |        |        |
 | `grant_signer_role`               |   ✓   |        |        |
 | `revoke_signer_role`              |   ✓   |        |        |
+| `rotate_admin_role`               |   ✓   |        |        |
 | `grant_pauser_role`               |   ✓   |        |        |
 | `revoke_pauser_role`              |   ✓   |        |        |
 | Sign quotes                       |       |        |   ✓    |
 
-Distinctness rules enforced on every rotation:
-- `admin != pauser`
-- `pauser != first-32-bytes-of(signer)`
-- `admin != first-32-bytes-of(signer)`
+No on-chain role-separation invariant: `admin`, `pauser` and `treasury`
+may share one address (e.g. a single Squads multisig vault). Separation,
+if wanted, is an operational policy, not a code invariant. The secp256k1
+`signer` is never compared to any Solana address on-chain.
 
 ## 8. Fee Caps
 

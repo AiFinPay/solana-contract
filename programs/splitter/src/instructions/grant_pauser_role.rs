@@ -17,7 +17,7 @@ pub fn handle_grant_pauser_role(ctx: Context<GrantPauserRole>, pauser: Pubkey) -
         ErrorCode::Unauthorized
     );
     require!(!pauser.eq(&Pubkey::default()), ErrorCode::ZeroPauser);
-    require!(!pauser.eq(&config.admin), ErrorCode::AdminEqualsSigner);
+    // No role-separation check: pauser may equal admin (single-multisig setup).
 
     ctx.accounts.config.pauser = pauser;
     msg!("Pauser role granted");

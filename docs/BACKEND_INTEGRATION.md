@@ -747,6 +747,22 @@ async function rotateSigner(
 }
 ```
 
+### 9.7 Rotate Admin
+
+```typescript
+async function rotateAdmin(
+  program: Program,
+  admin: Keypair,
+  newAdmin: PublicKey,
+): Promise<string> {
+  return program.methods
+    .rotateAdminRole(newAdmin)
+    .accounts({ config: configPDA, admin: admin.publicKey })
+    .signers([admin])
+    .rpc();
+}
+```
+
 ---
 
 ## 10. Full Example: End-to-End Flow
