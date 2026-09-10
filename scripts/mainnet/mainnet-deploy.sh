@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Deploy the canonical splitter program to MAINNET from a Ledger wallet.
+# Deploy the canonical splitter program to MAINNET from a local keypair.
 #
 # Mainnet differences vs scripts/devnet/devnet-deploy.sh:
-#   - deployer defaults to a Ledger URL (`usb://ledger`), NOT a file keypair;
-#     a file path may still be passed explicitly via --keypair;
+#   - deployer defaults to a local file keypair (`./keypairs/mainnet-deployer.json`);
+#     a Ledger URL may still be passed explicitly via --keypair;
 #   - the program keypair is NEVER generated: it must be the canonical
 #     keypairs/splitter-keypair.json matching declare_id! in lib.rs;
 #   - aborts if the placeholder DEPLOYER constant is still present in
 #     programs/splitter/src/constants.rs (initialize is gated to DEPLOYER,
-#     so the Ledger address must be baked in BEFORE `cargo build-sbf`);
+#     so the deployer address must be baked in BEFORE `cargo build-sbf`);
 #   - rebuilds the SBF binary by default so the on-chain DEPLOYER matches
 #     the source tree (override with --skip-build);
 #   - requires typing DEPLOY-MAINNET to proceed (override with --yes).
 #
-# WARNING: real mainnet SOL is spent. Verify every address on the Ledger screen.
+# WARNING: real mainnet SOL is spent. Verify every address before approving.
 #
 # Usage:
 #   ./mainnet-deploy.sh [--program <name>] [--keypair <path|ledger-url>]
@@ -24,8 +24,9 @@
 #   1. Provide DEPLOYER via --deployer or SPLITTER_DEPLOYER env (preferred:
 #      no code change — build.rs bakes it into the binary). Legacy manual
 #      edit of programs/splitter/src/constants.rs still works.
-#   2. Fund the Ledger wallet with at least ~3 SOL (program rent + margin).
-#   3. Connect the Ledger, unlock it, and open the Solana app.
+#   2. Fund the deployer wallet with at least ~3 SOL (program rent + margin).
+#   3. Ensure `./keypairs/mainnet-deployer.json` exists and holds the deployer
+#      keypair (or pass --keypair to override).
 
 set -euo pipefail
 
@@ -44,7 +45,7 @@ PLACEHOLDER_DEPLOYER_FP="0xDE, 0xA0, 0xD0, 0xBE"
 # Defaults.
 PROGRAM_NAME="splitter"
 KEYPAIR_DIR="$PROJECT_ROOT/keypairs"
-DEPLOYER_KEYPAIR="usb://ledger"
+DEPLOYER_KEYPAIR="$KEYPAIR_DIR/mainnet-deployer.json"
 DEPLOYER_OVERRIDE="${SPLITTER_DEPLOYER:-}"
 PROGRAM_KEYPAIR="$KEYPAIR_DIR/splitter-keypair.json"
 SOLANA_URL="https://api.mainnet-beta.solana.com"
@@ -87,8 +88,8 @@ while [[ $# -gt 0 ]]; do
             echo "           [--deployer <base58-pubkey>] [--program-keypair <path>]"
             echo "           [--url <rpc_url>] [--yes] [--skip-build]"
             echo "  --program         Program name under programs/ (default: splitter)"
-            echo "  --keypair         Deployer signer: Ledger URL (default: usb://ledger)"
-            echo "                    or a file keypair path, e.g. usb://ledger?key=0"
+            echo "  --keypair         Deployer signer: file keypair path (default: keypairs/mainnet-deployer.json)"
+            echo "                    or a Ledger URL, e.g. usb://ledger?key=0"
             echo "  --deployer        On-chain DEPLOYER baked into the binary (base58)."
             echo "                    Same as SPLITTER_DEPLOYER env. No code change needed."
             echo "                    Defaults to \$SPLITTER_DEPLOYER when the flag is absent."
@@ -101,6 +102,7 @@ while [[ $# -gt 0 ]]; do
         *)
             echo "Unknown option: $1"
             echo "Usage: $0 [--program <program_name>] [--keypair <path|ledger-url>] [--deployer <base58-pubkey>] [--url <rpc_url>] [--yes] [--skip-build]"
+            echo "  Default deployer keypair: keypairs/mainnet-deployer.json"
             exit 1
             ;;
     esac
@@ -158,7 +160,7 @@ if [[ -n "$DEPLOYER_OVERRIDE" ]]; then
     log "DEPLOYER override : $SPLITTER_DEPLOYER (baked via build.rs, no code change)"
 elif grep -q "$PLACEHOLDER_DEPLOYER_FP" "$CONSTANTS_RS"; then
     log "ABORT: placeholder DEPLOYER bytes still present in $CONSTANTS_RS."
-    log "Pass the real Ledger (or multisig) address without editing code:"
+    log "Pass the real deployer address without editing code:"
     log "  $0 --deployer <BASE58_PUBKEY> --keypair \"$DEPLOYER_KEYPAIR\""
     log "or:"
     log "  SPLITTER_DEPLOYER=<BASE58_PUBKEY> $0 --keypair \"$DEPLOYER_KEYPAIR\""
@@ -169,7 +171,7 @@ else
     log "DEPLOYER placeholder absent from constants.rs (verify the address manually!)."
 fi
 
-# --- Resolve the deployer signer (Ledger URL or file). ---
+# --- Resolve the deployer signer (file keypair or Ledger URL). ---
 if [[ "$DEPLOYER_KEYPAIR" == usb://* ]]; then
     log "Deployer signer : Ledger ($DEPLOYER_KEYPAIR)"
     log "Confirm every address on the Ledger screen before approving."
@@ -177,6 +179,7 @@ if [[ "$DEPLOYER_KEYPAIR" == usb://* ]]; then
 else
     if [[ ! -f "$DEPLOYER_KEYPAIR" ]]; then
         log "Deployer keypair not found: $DEPLOYER_KEYPAIR"
+        log "Create it with: solana-keygen new --outfile $DEPLOYER_KEYPAIR"
         exit 1
     fi
     log "Deployer signer : file ($DEPLOYER_KEYPAIR)"
@@ -189,7 +192,7 @@ if [[ -n "${SPLITTER_DEPLOYER:-}" && "$SPLITTER_DEPLOYER" != "$DEPLOYER_PUBKEY" 
     log "WARNING: valid for a multisig/authority-split setup — double-check before proceeding."
 fi
 
-# --- Balance check (by address, so Ledgers are not prompted). ---
+# --- Balance check. ---
 BALANCE=$(solana balance "$DEPLOYER_PUBKEY" --url "$SOLANA_URL" 2>&1 | awk '{print $1}')
 log "Mainnet balance : $BALANCE SOL"
 
@@ -289,8 +292,6 @@ log ""
 log "Next steps:"
 log "  1. Initialize (payer must be the on-chain DEPLOYER):"
 log "     DEPLOYER_KEYPAIR_PATH=<deployer-key> npm run initialize:mainnet"
-log "     If DEPLOYER lives on the Ledger, sign initialize with a Ledger-capable"
-log "     client instead — see scripts/mainnet/README.md."
 log "  2. Configure routes: npm run configure:mainnet"
 log "  3. Verify: npm run check:mainnet"
 log "  4. To close and recover rent later (upgrade authority signs):"

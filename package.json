@@ -19,7 +19,9 @@
 		"test:signer": "pnpm build:signer-test && mocha target/scripts/signer-parity.test.js",
 		"build:signer-test": "tsc scripts/signer/signer-parity.test.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node,mocha --outDir target/scripts",
 		"check:env:mainnet": "node target/scripts/check-env.js",
-		"build:check-env": "tsc scripts/mainnet/check-env.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts"
+		"build:check-env": "tsc scripts/mainnet/check-env.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"deploy:ledger": "./scripts/mainnet/ledger-deploy.sh",
+		"deploy:ledger:yes": "./scripts/mainnet/ledger-deploy.sh --yes"
 	},
 	"devDependencies": {
 		"@coral-xyz/borsh": "^0.32.1",

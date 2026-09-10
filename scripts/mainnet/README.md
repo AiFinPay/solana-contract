@@ -6,6 +6,7 @@ Deployment is designed for a **Ledger-held deployer**.
 
 | Script | Purpose | Spends SOL? |
 |---|---|---|
+| **`ledger-deploy.sh`** | **Full Ledger pipeline: deploy + init + routes + verify** | **YES** |
 | `mainnet-deploy.sh` | Deploy / upgrade canonical program (Ledger signs) | YES (~2.5 + margin) |
 | `calculate-deploy-cost.sh` | Estimate deploy + PDA rent | No (read-only) |
 | `calculate-initialize-cost.sh` | Estimate `initialize` cost | No (read-only) |
@@ -36,6 +37,21 @@ Deployment is designed for a **Ledger-held deployer**.
 
 ## Launch sequence
 
+### Option A: All-in-one Ledger pipeline (recommended)
+
+```bash
+# Full pipeline: deploy → initialize → routes → verify (all via Ledger)
+./scripts/mainnet/ledger-deploy.sh
+
+# Or skip prompts (attended Ledger operation):
+./scripts/mainnet/ledger-deploy.sh --yes
+
+# Skip specific steps:
+./scripts/mainnet/ledger-deploy.sh --skip-routes --skip-verify
+```
+
+### Option B: Step-by-step
+
 ```bash
 # 1. Deploy (Ledger signs; rebuilds SBF so DEPLOYER is baked in)
 ./scripts/mainnet/mainnet-deploy.sh
@@ -58,10 +74,10 @@ npm run check:mainnet
 
 `initialize-mainnet-splitter.ts` signs with a **file** keypair and refuses
 to run without `DEPLOYER_KEYPAIR_PATH`. If DEPLOYER lives on the Ledger,
-do NOT export the key — send the identical `initialize` instruction via a
-Ledger-capable client instead (e.g. Anchor CLI with
-`--provider.wallet "usb://ledger?key=<n>"`, same program ID, same PDAs,
-same Borsh params), then continue with steps 3–4.
+use `ledger-deploy.sh` which handles this automatically, or send the
+identical `initialize` instruction via a Ledger-capable client (e.g. Anchor
+CLI with `--provider.wallet "usb://ledger?key=<n>"`, same program ID,
+same PDAs, same Borsh params), then continue with steps 3–4.
 
 ## Safety rules
 

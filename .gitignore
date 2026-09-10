@@ -17,3 +17,4 @@ agents_config.json
 .idea
 .vscode
 deployments/**/*program-keypair*.json
+Makefile
