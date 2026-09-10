@@ -785,4 +785,234 @@ mod tests {
         assert_eq!(code(error::ErrorCode::InvalidDeployer), 6035);
         assert_eq!(code(error::ErrorCode::InvalidRecoveryId), 6047);
     }
+
+    // -----------------------------------------------------------------------
+    // Additional split_gross edge-case coverage
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn split_gross_rejects_ip_creator_zero_when_bps_nonzero() {
+        let profile = RouteProfileEntry {
+            route_id: ROUTE_AGENT_X402,
+            treasury_bps: 0,
+            ip_creator_bps: 50,
+            enabled: true,
+            configured_at: 0,
+            route_treasury: Pubkey::default(),
+        };
+        // ip_creator_bps > 0 but ip_creator == Pubkey::default() -> MissingIPCreator
+        assert!(utils::split_gross(1_000_000, &profile, &Pubkey::default()).is_err());
+    }
+
+    #[test]
+    fn split_gross_both_fees_exceed_gross() {
+        // 60% treasury + 50% IP = 110% total -> FeeExceedsGross
+        let profile = RouteProfileEntry {
+            route_id: ROUTE_MERCHANT_AIFP1,
+            treasury_bps: 6000,
+            ip_creator_bps: 5000,
+            enabled: true,
+            configured_at: 0,
+            route_treasury: Pubkey::default(),
+        };
+        let ip_creator = Pubkey::new_unique();
+        assert!(utils::split_gross(1_000_000, &profile, &ip_creator).is_err());
+    }
+
+    #[test]
+    fn split_gross_rounds_treasury_down() {
+        // 1 bps on 99 lamports = 0.01 * 99 = 0.99 -> floor = 0 -> fee must be > 0
+        let profile = RouteProfileEntry {
+            route_id: ROUTE_MERCHANT_AIFP1,
+            treasury_bps: 1,
+            ip_creator_bps: 0,
+            enabled: true,
+            configured_at: 0,
+            route_treasury: Pubkey::default(),
+        };
+        // gross=99, treasury_bps=1 -> fee = 99/10000 = 0 (floored) -> rejected
+        assert!(utils::split_gross(99, &profile, &Pubkey::default()).is_err());
+
+        // gross=10000, treasury_bps=1 -> fee = 10000/10000 = 1 -> accepted
+        let (m, t, i) = utils::split_gross(10_000, &profile, &Pubkey::default()).unwrap();
+        assert_eq!(t, 1);
+        assert_eq!(i, 0);
+        assert_eq!(m, 9_999);
+    }
+
+    #[test]
+    fn split_gross_rounds_ip_down() {
+        // 1 bps IP on 99 lamports -> floor = 0 -> rejected
+        let profile = RouteProfileEntry {
+            route_id: ROUTE_AGENT_X402,
+            treasury_bps: 0,
+            ip_creator_bps: 1,
+            enabled: true,
+            configured_at: 0,
+            route_treasury: Pubkey::default(),
+        };
+        let ip_creator = Pubkey::new_unique();
+        assert!(utils::split_gross(99, &profile, &ip_creator).is_err());
+
+        // 1 bps IP on 10000 lamports -> fee = 1
+        let (m, t, i) = utils::split_gross(10_000, &profile, &ip_creator).unwrap();
+        assert_eq!(t, 0);
+        assert_eq!(i, 1);
+        assert_eq!(m, 9_999);
+    }
+
+    #[test]
+    fn split_gross_minimum_viable_payment() {
+        // Smallest payment that succeeds: treasury_bps=1, gross=10_000 -> fee=1
+        let profile = RouteProfileEntry {
+            route_id: ROUTE_MERCHANT_AIFP1,
+            treasury_bps: 1,
+            ip_creator_bps: 0,
+            enabled: true,
+            configured_at: 0,
+            route_treasury: Pubkey::default(),
+        };
+        let (m, t, i) = utils::split_gross(10_000, &profile, &Pubkey::default()).unwrap();
+        assert_eq!(m, 9_999);
+        assert_eq!(t, 1);
+        assert_eq!(i, 0);
+        assert_eq!(m + t + i, 10_000);
+    }
+
+    // -----------------------------------------------------------------------
+    // encode_quote boundary checks
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn encode_quote_buffer_fully_written() {
+        let q = Quote {
+            payer: Pubkey::new_from_array([0x11; 32]),
+            merchant: Pubkey::new_from_array([0x22; 32]),
+            token: Pubkey::new_from_array([0x33; 32]),
+            gross_amount: u64::MAX,
+            ip_creator: Pubkey::new_from_array([0x44; 32]),
+            valid_until: i64::MAX,
+            order_id_hash: [0xFF; 32],
+            nonce: u64::MAX,
+            route_id: [0xAA; 32],
+        };
+        let mut buf = [0u8; utils::QUOTE_ENCODED_LEN];
+        utils::encode_quote(&q, &mut buf);
+        // Every byte in the buffer must be non-zero (all fields use known non-zero content).
+        assert!(buf.iter().all(|&b| b != 0), "buffer must be fully written");
+    }
+
+    #[test]
+    fn encode_quote_zero_fields_produce_zero_bytes() {
+        let q = Quote {
+            payer: Pubkey::default(),
+            merchant: Pubkey::default(),
+            token: Pubkey::default(),
+            gross_amount: 0,
+            ip_creator: Pubkey::default(),
+            valid_until: 0,
+            order_id_hash: [0u8; 32],
+            nonce: 0,
+            route_id: [0u8; 32],
+        };
+        let mut buf = [0u8; utils::QUOTE_ENCODED_LEN];
+        utils::encode_quote(&q, &mut buf);
+        assert_eq!(buf, [0u8; utils::QUOTE_ENCODED_LEN]);
+    }
+
+    // -----------------------------------------------------------------------
+    // quote_message_hash edge cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn quote_hash_zero_gross_amount() {
+        let q = Quote {
+            payer: Pubkey::new_unique(),
+            merchant: Pubkey::new_unique(),
+            token: Pubkey::default(),
+            gross_amount: 0,
+            ip_creator: Pubkey::default(),
+            valid_until: 1_700_000_000,
+            order_id_hash: [0u8; 32],
+            nonce: 0,
+            route_id: ROUTE_AGENT_X402,
+        };
+        let program_id = crate::id();
+        let h1 = utils::quote_message_hash(&program_id, &q);
+        // Digest must be deterministic even for zero-value fields.
+        let h2 = utils::quote_message_hash(&program_id, &q);
+        assert_eq!(h1, h2);
+        // Changing gross_amount must change the hash.
+        let mut q2 = q.clone();
+        q2.gross_amount = 1;
+        assert_ne!(h1, utils::quote_message_hash(&program_id, &q2));
+    }
+
+    #[test]
+    fn quote_hash_all_max_fields() {
+        let q = Quote {
+            payer: Pubkey::new_from_array([0xFF; 32]),
+            merchant: Pubkey::new_from_array([0xFF; 32]),
+            token: Pubkey::new_from_array([0xFF; 32]),
+            gross_amount: u64::MAX,
+            ip_creator: Pubkey::new_from_array([0xFF; 32]),
+            valid_until: i64::MAX,
+            order_id_hash: [0xFF; 32],
+            nonce: u64::MAX,
+            route_id: [0xFF; 32],
+        };
+        let program_id = crate::id();
+        let h = utils::quote_message_hash(&program_id, &q);
+        // Must produce a valid 32-byte digest without overflow.
+        assert_ne!(h, [0u8; 32]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Constants validation
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn constants_fee_caps_are_consistent() {
+        // MAX_AGGREGATE_BPS must be >= MAX_TREASURY_BPS + MAX_IP_CREATOR_BPS
+        // so that a route with both maxed fees is representable.
+        assert!(MAX_AGGREGATE_BPS as u32 >= MAX_TREASURY_BPS as u32 + MAX_IP_CREATOR_BPS as u32);
+    }
+
+    #[test]
+    fn constants_max_tokens_and_routes_are_usize() {
+        // MAX_ROUTES must fit in a u8 count field.
+        assert!(MAX_ROUTES <= u8::MAX as usize);
+    }
+
+    // -----------------------------------------------------------------------
+    // State struct behavior
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn token_list_rejects_default_pubkey() {
+        let list = TokenList {
+            admin: Pubkey::new_unique(),
+            tokens: vec![Pubkey::new_unique()],
+            bump: 1,
+        };
+        assert!(!list.is_allowed(Pubkey::default()));
+    }
+
+    #[test]
+    fn find_route_profile_preserves_field_identity() {
+        let entry = RouteProfileEntry {
+            route_id: ROUTE_AGENT_X402,
+            treasury_bps: 250,
+            ip_creator_bps: 75,
+            enabled: true,
+            configured_at: 1_700_000_000,
+            route_treasury: Pubkey::new_unique(),
+        };
+        let entries = vec![entry.clone()];
+        let found = utils::find_route_profile(&entries, &ROUTE_AGENT_X402).unwrap();
+        assert_eq!(found.treasury_bps, 250);
+        assert_eq!(found.ip_creator_bps, 75);
+        assert_eq!(found.route_treasury, entry.route_treasury);
+        assert_eq!(found.configured_at, 1_700_000_000);
+    }
 }

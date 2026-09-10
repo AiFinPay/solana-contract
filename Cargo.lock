@@ -4096,6 +4096,7 @@ dependencies = [
  "litesvm",
  "rand 0.8.8",
  "sha2 0.10.9",
+ "solana-account",
  "solana-instruction",
  "solana-keypair",
  "solana-pubkey 3.0.0",
