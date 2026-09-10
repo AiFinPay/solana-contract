@@ -73,7 +73,7 @@ The following fields are shared with EVM v1.4 and MUST match.
 1. `cargo fmt --check`
 2. `cargo test --locked`
 3. `cargo clippy --all-targets -- -D warnings`
-4. `cargo build-sbf`
+4. `anchor build`
 
 All steps run from the repo root because the workspace is defined at the
 root level (`Cargo.toml` with `members = ["programs/*"]`).

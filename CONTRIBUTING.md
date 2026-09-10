@@ -21,7 +21,8 @@ for changes that touch on-chain settlement code.
 git clone <repo-url>
 cd solana-contract
 pnpm install                       # pulls @daochild/agents-config only
-cargo build-sbf                    # builds target/deploy/splitter.so
+anchor build                        # builds target/deploy/splitter.so
+anchor keys sync                    # sync program ID with keypair
 cargo test                         # inline unit tests + litesvm integration test
 ```
 
@@ -32,7 +33,7 @@ cargo test                         # inline unit tests + litesvm integration tes
 2. **Make your change** in `programs/splitter/`.
 3. **Run the local checks** before pushing (see §5).
 4. **Push** and open a pull request against the original branch.
-5. CI must pass (`fmt --check`, `cargo test --locked`, `clippy`, `build-sbf`).
+5. CI must pass (`fmt --check`, `cargo test --locked`, `clippy`, `anchor build`).
 6. **At least one human approval** is required for any change touching
    settlement semantics, fee caps, role rotation, or the EIP-712 digest.
 7. Squash-merge once green.
@@ -72,10 +73,10 @@ Before opening a PR, run all four CI steps locally:
 cargo fmt --check
 cargo test --locked
 cargo clippy --all-targets -- -D warnings
-cargo build-sbf
+anchor build
 ```
 
-Any failure is a blocker. If `cargo build-sbf` fails with linker errors,
+Any failure is a blocker. If `anchor build` fails with linker errors,
 verify `cargo-build-sbf` is on `PATH` and that the Solana platform-tools
 match the Solana BPF toolchain expected by `anchor-lang 1.1.2`.
 
@@ -86,7 +87,7 @@ match the Solana BPF toolchain expected by `anchor-lang 1.1.2`.
   invariants. Add new tests here for any new pure function.
 - **Integration tests** live in `programs/splitter/tests/` and use
   `litesvm`. They load `target/deploy/splitter.so` directly, so make sure
-  `cargo build-sbf` has been run before invoking `cargo test`.
+  `anchor build` has been run before invoking `cargo test`.
 - **Coverage target**: 80% on new code. If you cannot hit that, document
   the gap in the PR description.
 - **Digest regression vectors**: when changing the digest, add a regression
@@ -119,7 +120,7 @@ Any PR touching one of these MUST:
 - [ ] `cargo fmt --check` passes locally.
 - [ ] `cargo test --locked` passes locally.
 - [ ] `cargo clippy --all-targets -- -D warnings` passes locally.
-- [ ] `cargo build-sbf` passes locally.
+- [ ] `anchor build` passes locally.
 - [ ] New or modified instructions have at least one positive and one
   negative test case.
 - [ ] New `ErrorCode` variants have a clear `#[msg]`.

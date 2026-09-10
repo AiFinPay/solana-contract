@@ -25,7 +25,8 @@ gross_amount
 ## Build
 
 ```bash
-cargo build-sbf --package splitter
+anchor build --package splitter
+anchor keys sync                           # Sync program ID with keypair
 ```
 
 Produces `target/deploy/splitter.so`.
@@ -37,7 +38,7 @@ cargo test --package splitter
 ```
 
 Runs inline unit tests in `src/lib.rs` and the `litesvm` integration test
-in `tests/test_initialize.rs`. Make sure `cargo build-sbf` has run first
+in `tests/test_initialize.rs`. Make sure `anchor build` has run first
 so the `.so` is available.
 
 ## Lint

@@ -29,7 +29,7 @@ Before declaring any code task complete, run the CI steps from the repo root:
 cargo fmt --check
 cargo test --locked
 cargo clippy --all-targets -- -D warnings
-cargo build-sbf
+anchor build
 ```
 
 Treat any failure as a blocker. Do not ask the user to skip these checks.

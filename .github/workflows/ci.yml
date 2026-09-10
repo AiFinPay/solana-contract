@@ -27,4 +27,4 @@ jobs:
       - name: Rust clippy
         run: cargo clippy --all-targets -- -D warnings
       - name: SBF build gate
-        run: cargo build-sbf
+        run: cargo build-sbf --arch v3

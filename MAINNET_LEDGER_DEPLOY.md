@@ -134,7 +134,7 @@ SPL whitelist: тільки мінти з `token_list` приймаються в
 ```bash
 rustc --version        # 1.89.0, пін через rust-toolchain.toml
 solana --version       # CLI під Anchor toolchain 4.1.2 (див. Anchor.toml)
-cargo build-sbf --version
+anchor --version       # Anchor CLI 1.1.2
 pnpm --version && node --version
 ```
 
@@ -144,7 +144,7 @@ pnpm --version && node --version
 cargo fmt --check
 cargo test --locked
 cargo clippy --all-targets -- -D warnings
-cargo build-sbf
+anchor build
 ```
 
 Канонічний program keypair `keypairs/splitter-keypair.json` (gitignored, ніколи не комітити) мусить давати `5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS` і збігатися з `declare_id!` в `lib.rs`. `mainnet-deploy.sh` це перевіряє і абортиться при розбіжності. Ledger: розблокований, відкритий Solana-додаток, кожну адресу звіряти на екрані пристрою.

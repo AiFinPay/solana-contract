@@ -13,7 +13,8 @@ apply **only** when editing or auditing `programs/splitter/`.
 cargo test --package splitter
 cargo fmt --check --package splitter
 cargo clippy --package splitter --all-targets -- -D warnings
-cargo build-sbf --package splitter
+anchor build --package splitter
+anchor keys sync                          # Sync program ID with keypair
 ```
 
 ## Program identity
@@ -93,7 +94,7 @@ upgrade:
 
 - Add pure-function unit tests to `src/lib.rs`.
 - Add instruction-level / litesvm tests to `tests/`.
-- `cargo build-sbf --package splitter` must produce
+- `anchor build --package splitter` must produce
   `target/deploy/splitter.so` before `cargo test` loads it.
 
 ## Audit skill

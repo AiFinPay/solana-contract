@@ -95,7 +95,7 @@ These properties are checked by `cargo test` and MUST remain green:
 
 #### `splitter`
 
-1. `cargo build-sbf` produces `target/deploy/splitter.so`. Verify the
+1. `anchor build` produces `target/deploy/splitter.so`. Verify the
    file size matches the previous release within ±5%.
 2. Verify the declared program ID matches `56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr`.
 3. Use a multi-sig (Squads) for the `admin` on mainnet.

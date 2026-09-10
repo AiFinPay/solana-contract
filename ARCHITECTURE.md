@@ -270,7 +270,7 @@ indexers can deduplicate retries.
 - Rust toolchain is pinned via `rust-toolchain.toml` to `1.89.0`.
 - `cargo test` runs the inline unit tests in each program's `lib.rs` and the
   `litesvm`-based integration test in `programs/splitter/tests/test_initialize.rs`.
-- `cargo build-sbf` is the deploy gate. It produces
+- `anchor build` is the deploy gate. It produces
   `target/deploy/splitter.so`.
 - The CI pipeline in `.github/workflows/ci.yml` runs formatting, tests,
   clippy, and SBF build on every PR and push to `main` / `dev`.

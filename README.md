@@ -17,7 +17,8 @@ transaction.
 ## Build
 
 ```bash
-cargo build-sbf
+anchor build
+anchor keys sync
 ```
 
 Produces `target/deploy/splitter.so`.
@@ -42,71 +43,56 @@ The CI pipeline in `.github/workflows/ci.yml` runs all four checks
 (formatting, tests, clippy, SBF build) on every PR and push to `main` /
 `dev`.
 
-## Deploy with Ledger
+## Deployment
 
-Before using a Ledger for deployment:
+Deploy scripts live under `scripts/` organized by cluster:
 
-1. Close Ledger Live.
-2. Connect the Ledger via USB, unlock it, and open the **Solana** app
-   (device must show "Application is ready").
-3. Make sure the deployer account on the Ledger is funded with SOL on the
-   target cluster.
-
-Check the wallet address that will pay for deployment:
-
-```bash
-# default derivation path (key=0)
-solana-keygen pubkey usb://ledger?key=0
+```
+scripts/
+├── devnet/
+│   ├── devnet-deploy.sh          # Deploy to devnet (file keypair)
+│   ├── calculate-deploy-cost.sh  # Estimate deploy cost
+│   ├── calculate-initialize-cost.sh  # Estimate initialize cost
+│   ├── simulate-devnet-deploy.sh     # Dry-run deploy
+│   ├── initialize-devnet-splitter.ts # Initialize after deploy
+│   ├── configure-route.ts            # Configure settlement routes
+│   └── check-devnet-splitter.ts      # Verify deployment state
+├── mainnet/
+│   ├── mainnet-deploy.sh         # Deploy to mainnet (Ledger)
+│   ├── calculate-deploy-cost.sh  # Estimate deploy cost
+│   ├── calculate-initialize-cost.sh  # Estimate initialize cost
+│   ├── simulate-mainnet-deploy.sh    # Dry-run deploy
+│   ├── initialize-mainnet-splitter.ts
+│   ├── configure-mainnet-route.ts
+│   └── check-mainnet-splitter.ts
+└── localnet/
+    └── localnet-deploy.sh        # Deploy to local validator
 ```
 
-If you have several Ledger devices, use a fully-qualified keypair URL:
+### Estimate costs
+
+Before deploying, check the estimated SOL required:
 
 ```bash
-# resolve the signer URL first
-solana resolve-signer usb://ledger?key=0/0
-# example output (wallet IDs vary):
-# usb://ledger/BsNsvfXqQTtJnagwFWdBS7FBXgnsK8VZ5CmuznN85swK?key=0/0
+# Deploy cost (program rent + transaction fees)
+./scripts/devnet/calculate-deploy-cost.sh
+
+# Initialize cost (PDA rent for Config, TokenList, ProfilesIndex)
+./scripts/devnet/calculate-initialize-cost.sh
 ```
 
-Build the program binary:
+Replace `devnet` with `mainnet` for mainnet estimates.
+
+### Deploy to devnet
 
 ```bash
-cargo build-sbf --package splitter
-```
+# 1. Fund the deployer
+solana airdrop 2 --keypair keypairs/devnet-deployer.json --url devnet
 
-### Deploy the program binary
+# 2. Deploy
+./scripts/devnet/devnet-deploy.sh
 
-Ledger is only used to **sign the deployment transactions**; the program
-keypair must still be a normal Solana keypair file (Ledger cannot expose
-the private key needed by `solana program deploy`). Generate the program
-keypair locally:
-
-```bash
-solana-keygen new --no-passphrase -s -o target/deploy/splitter-keypair.json
-```
-
-Then deploy, passing the Ledger URL as the deployer signer:
-
-```bash
-solana program deploy target/deploy/splitter.so \
-  --program-id target/deploy/splitter-keypair.json \
-  --keypair usb://ledger?key=0 \
-  --url https://api.devnet.solana.com
-```
-
-Approve each transaction on the Ledger when prompted. The command prints
-program ID and deployment signature.
-
-### Initialize with the deployer keypair on Ledger
-
-The deployer (`DEPLOYER` constant) must match the Ledger address used for
-`initialize`. If the program ID is the canonical one, use the TS helper
-script with the Ledger keypair URL exported as `DEPLOYER_KEYPAIR`:
-
-```bash
-export DEPLOYER_KEYPAIR="usb://ledger?key=0"
-export CLUSTER="devnet"
-# required env vars for initialize-devnet-splitter.ts
+# 3. Initialize (set required env vars first)
 export ADMIN_PUBKEY="<admin solana address>"
 export PAUSER_PUBKEY="<pauser solana address>"
 export TREASURY_PUBKEY="<treasury solana address>"
@@ -116,30 +102,55 @@ export ROUTE_IDS='["<route_id_hex_1>","<route_id_hex_2>"]'
 export TREASURY_BPS='[<bps list>]'
 export IP_CREATOR_BPS='[<bps list>]'
 
-pnpm exec ts-node scripts/initialize-devnet-splitter.ts
+pnpm exec ts-node scripts/devnet/initialize-devnet-splitter.ts
+
+# 4. Verify
+pnpm exec ts-node scripts/devnet/check-devnet-splitter.ts
 ```
 
-Approve the transaction on the Ledger when prompted.
-
-### Useful Ledger commands
+### Deploy to localnet
 
 ```bash
-# show balance of the Ledger deployer account
-solana balance <DEPLOYER_ADDRESS> --url https://api.devnet.solana.com
+# Start local validator
+solana-test-validator --reset
 
-# airdrop on devnet (if the faucet is available)
-solana airdrop 2 <DEPLOYER_ADDRESS> --url https://api.devnet.solana.com
-
-# close a deployed program (recovers rent), signed by Ledger
-solana program close <PROGRAM_ID> \
-  --keypair usb://ledger?key=0 \
-  --url https://api.devnet.solana.com \
-  --bypass-warning
+# Deploy (auto-airdrops if balance is low)
+./scripts/localnet/localnet-deploy.sh
 ```
 
-> **Note for zsh users:** the `?` in `usb://ledger?key=0` is interpreted by
-> zsh. Either escape it (`usb://ledger\?key=0`) or disable zsh globbing:
-> `unsetopt nomatch`.
+### Deploy to mainnet (Ledger)
+
+Before using a Ledger for deployment:
+
+1. Close Ledger Live.
+2. Connect the Ledger via USB, unlock it, and open the **Solana** app
+   (device must show "Application is ready").
+3. Fund the Ledger wallet with at least ~3 SOL.
+
+```bash
+# Deploy (requires DEPLOYER env or --deployer flag)
+SPLITTER_DEPLOYER="<your-ledger-pubkey>" ./scripts/mainnet/mainnet-deploy.sh
+
+# Or with explicit flags
+./scripts/mainnet/mainnet-deploy.sh \
+  --deployer "<your-ledger-pubkey>" \
+  --keypair "usb://ledger?key=0"
+```
+
+The mainnet script requires typing `DEPLOY-MAINNET` to confirm.
+
+### Useful commands
+
+```bash
+# Check balance
+solana balance <WALLET_ADDRESS> --url https://api.devnet.solana.com
+
+# Airdrop on devnet
+solana airdrop 2 --keypair keypairs/devnet-deployer.json --url devnet
+
+# Close a deployed program (recovers rent)
+solana program close <PROGRAM_ID> --keypair <KEYPAIR> --url devnet
+```
 
 ## Overview
 

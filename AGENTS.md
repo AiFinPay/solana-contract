@@ -14,19 +14,48 @@ Anchor/Sealevel Solana program (v1.4) for signed, multi-route gross settlement.
 
 ```bash
 # Rust toolchain is pinned to 1.89.0 (rust-toolchain.toml)
-cargo test                              # Run all tests (defined in Anchor.toml scripts)
-cargo fmt --check                      # Check formatting
+# All commands run from repo root (workspace level).
+anchor build                             # SBF build (wraps cargo build-sbf)
+anchor build --package splitter          # Build splitter only
+anchor keys sync                         # Sync program ID with keypair
+cargo test                               # All tests (unit + litesvm integration)
+cargo test --package splitter            # Splitter tests only
+cargo fmt --check                        # Check formatting
 cargo clippy --all-targets -- -D warnings  # Lint
-cargo build-sbf                        # SBF build gate (required before deploy)
 ```
 
-## CI
+> **Why not `anchor test`?** It starts a local validator, which conflicts
+> with `skip_local_validator = true` in Anchor.toml. Tests use `litesvm`
+> (in-process), so run `cargo test` directly.
 
-All CI steps run from the repo root (workspace-level):
+## CI Order
+
 1. `cargo fmt --check`
 2. `cargo test --locked`
 3. `cargo clippy --all-targets -- -D warnings`
-4. `cargo build-sbf`
+4. `anchor build`
+
+## Deployment
+
+Scripts under `scripts/{devnet,mainnet,localnet}/`:
+
+```bash
+# Cost estimation (run before deploying)
+./scripts/devnet/calculate-deploy-cost.sh
+./scripts/devnet/calculate-initialize-cost.sh
+
+# Devnet
+solana airdrop 2 --keypair keypairs/devnet-deployer.json --url devnet
+./scripts/devnet/devnet-deploy.sh
+
+# Localnet (requires solana-test-validator --reset)
+./scripts/localnet/localnet-deploy.sh
+
+# Mainnet (requires Ledger, types DEPLOY-MAINNET to confirm)
+SPLITTER_DEPLOYER="<pubkey>" ./scripts/mainnet/mainnet-deploy.sh
+```
+
+Keypairs live in `keypairs/`. Deploy logs and IDL snapshots go to `deployments/splitter_v14/`.
 
 ## Project Structure
 
@@ -62,3 +91,5 @@ scripts/              # Deployment / utility scripts
 - Uses `resolver = "2"` in workspace Cargo.toml
 - `skip_local_validator = true` in Anchor.toml (local testing uses litesvm)
 - Wallet for localnet: `~/.config/solana/id.json`
+- `SPLITTER_DEPLOYER` env var baked into binary at build time by `build.rs`. Mainnet deploy requires this set to the real deployer pubkey (not placeholder).
+- `cargo test` must be preceded by `anchor build` since litesvm loads `target/deploy/splitter.so`.
