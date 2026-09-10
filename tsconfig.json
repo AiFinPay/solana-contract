@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleResolution": "bundler",
-    "types": ["node", "mocha", "chai"]
+    "types": ["node", "mocha"]
   },
   "include": ["tests/**/*", "target/types/**/*"],
   "exclude": ["node_modules"]

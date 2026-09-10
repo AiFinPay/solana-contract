@@ -1,7 +1,6 @@
 # Solana Contract
 
-Primary instructions: node_modules/@daochild/agents-config/AGENTS.md — read in
-full and follow unless overridden below.
+Primary instructions: node_modules/@daochild/agents-config/AGENTS.md — read in full and follow unless overridden below.
 
 When this repository is opened with **opencode**, also read
 [`.opencode/AGENTS.md`](./.opencode/AGENTS.md) for opencode-specific workflow,
