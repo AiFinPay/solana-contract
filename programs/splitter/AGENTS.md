@@ -21,7 +21,7 @@ anchor keys sync                          # Sync program ID with keypair
 
 - Name: `splitter`
 - Version: `1.4.0`
-- Program ID: `5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS`
+- Program ID: see [`Anchor.toml`](../../Anchor.toml)
 - Crate type: `cdylib + lib`
 
 ## Source layout

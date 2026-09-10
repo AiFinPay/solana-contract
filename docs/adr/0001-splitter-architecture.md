@@ -31,7 +31,7 @@ We adopt the following architecture:
 ### 1. Single Anchor program, single program ID (original scope)
 
 The canonical deployment is one Anchor program named `splitter` with program ID
-`5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS`. All full-featured settlement
+from [`Anchor.toml`](../../Anchor.toml). All full-featured settlement
 logic lives in `programs/splitter/`.
 
 A second, minimal program named `splitter_light` was previously maintained

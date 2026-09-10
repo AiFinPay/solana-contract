@@ -97,7 +97,7 @@ These properties are checked by `cargo test` and MUST remain green:
 
 1. `anchor build` produces `target/deploy/splitter.so`. Verify the
    file size matches the previous release within ±5%.
-2. Verify the declared program ID matches `56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr`.
+2. Verify the declared program ID matches the value in [`Anchor.toml`](./Anchor.toml).
 3. Use a multi-sig (Squads) for the `admin` on mainnet.
 4. Run `initialize` once, immediately transferring ownership of the
    multi-sig.

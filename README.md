@@ -10,9 +10,7 @@ transaction.
 
 ## Program ID
 
-```
-56cRuWVNt5KXRgvA4m6wroB4D45A3SjvowZVZXYBw3Mr
-```
+See [`Anchor.toml`](./Anchor.toml).
 
 ## Build
 

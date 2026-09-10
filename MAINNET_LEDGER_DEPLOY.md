@@ -1,6 +1,6 @@
 # AiFinPay Solana Splitter v1.4 — принцип роботи та деплой на mainnet через Ledger
 
-Program ID (canonical, всі кластери): `5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS`
+Program ID (canonical, всі кластери): see [`Anchor.toml`](./Anchor.toml)
 Код: `programs/splitter/`, скрипти: `scripts/{devnet,mainnet,localnet,signer}/`
 
 ## Частина 1. Принцип роботи
@@ -147,7 +147,7 @@ cargo clippy --all-targets -- -D warnings
 anchor build
 ```
 
-Канонічний program keypair `keypairs/splitter-keypair.json` (gitignored, ніколи не комітити) мусить давати `5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS` і збігатися з `declare_id!` в `lib.rs`. `mainnet-deploy.sh` це перевіряє і абортиться при розбіжності. Ledger: розблокований, відкритий Solana-додаток, кожну адресу звіряти на екрані пристрою.
+Канонічний program keypair `keypairs/splitter-keypair.json` (gitignored, ніколи не комітити) мусить давати program ID з [`Anchor.toml`](./Anchor.toml) і збігатися з `declare_id!` в `lib.rs`. `mainnet-deploy.sh` це перевіряє і абортиться при розбіжності. Ledger: розблокований, відкритий Solana-додаток, кожну адресу звіряти на екрані пристрою.
 
 ### 2.1. Конфігурація середовища
 
