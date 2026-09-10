@@ -7,19 +7,21 @@ solana_version = "4.1.2"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-splitter = "5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS"
+[programs.mainnet]
+splitter = "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
 
 [programs.devnet]
-splitter = "5QBJgMap7wuFsYfaU8Pmuu2i96GsJ3aBv6mMoUSaPoiS"
+splitter = "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
 
+[programs.localnet]
+splitter = "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
 
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "cargo test"
-test_ts = "pnpm exec ts-mocha -p tsconfig.json tests/**/*.test.ts"
+build = "cargo build-sbf --arch v3"
+build_localnet = "cargo build-sbf --arch v3"
 
 [hooks]
