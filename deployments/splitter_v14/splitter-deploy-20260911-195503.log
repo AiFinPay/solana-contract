@@ -1,0 +1,23 @@
+2026-09-11T19:55:03+02:00 Deployer wallet : 2n4ojEWYHjFADAxxCvTvifTK1mPsXmdyv2wt6hTBT9wd
+2026-09-11T19:55:03+02:00 Keypair path    : /home/daochild/dev/aifinpay/solana-contract/keypairs/devnet-deployer.json
+2026-09-11T19:55:03+02:00 Devnet balance  : 5.447599781 SOL
+2026-09-11T19:55:03+02:00 Program size    : 323816 bytes (316.22 KB)
+2026-09-11T19:55:03+02:00 Program ID      : 8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y
+2026-09-11T19:55:03+02:00 Program keypair : /home/daochild/dev/aifinpay/solana-contract/keypairs/splitter-keypair.json
+2026-09-11T19:55:03+02:00 Balance before  : 5.447599781 SOL
+2026-09-11T19:55:03+02:00 Deploying splitter to devnet...
+Program Id: 8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y
+
+Signature: 3zFWdWgbgixHYcXEkMkAEbKqc1xMKRXrUki4QXgGLiVNzC3LyPCxiQz25dojtGZoZVXyCBf8kqL5T9SC4dDt2dtJ
+
+2026-09-11T19:55:10+02:00 Balance after   : 5.445984781 SOL
+2026-09-11T19:55:10+02:00 Deploy cost     : 0.001615000 SOL
+2026-09-11T19:55:10+02:00 IDL snapshot    : /home/daochild/dev/aifinpay/solana-contract/deployments/splitter_v14/splitter.devnet.20260911-195503.json
+2026-09-11T19:55:10+02:00 
+2026-09-11T19:55:10+02:00 Next steps:
+2026-09-11T19:55:10+02:00   1. Initialize the program via Anchor/CLI with the deployer keypair.
+2026-09-11T19:55:10+02:00   2. To close and recover rent later:
+2026-09-11T19:55:10+02:00      solana program close 8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y --keypair /home/daochild/dev/aifinpay/solana-contract/keypairs/devnet-deployer.json --url devnet
+2026-09-11T19:55:10+02:00 
+2026-09-11T19:55:10+02:00 Wrote SPLITTER_PROGRAM_ID=8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y to /home/daochild/dev/aifinpay/solana-contract/.env.local
+2026-09-11T19:55:10+02:00 Full log saved to: /home/daochild/dev/aifinpay/solana-contract/deployments/splitter_v14/splitter-deploy-20260911-195503.log
