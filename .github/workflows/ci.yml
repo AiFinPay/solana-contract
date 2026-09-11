@@ -22,9 +22,9 @@ jobs:
           components: rustfmt, clippy
       - name: Rust formatting
         run: cargo fmt --check
+      - name: SBF build (required by integration tests)
+        run: cargo build-sbf --arch v3
       - name: Rust tests
         run: cargo test --locked
       - name: Rust clippy
         run: cargo clippy --all-targets -- -D warnings
-      - name: SBF build gate
-        run: cargo build-sbf --arch v3
