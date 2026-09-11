@@ -8,13 +8,13 @@ resolution = true
 skip-lint = false
 
 [programs.mainnet]
-splitter = "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
+splitter = "724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
 
 [programs.devnet]
-splitter = "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
+splitter = "724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
 
 [programs.localnet]
-splitter = "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
+splitter = "724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
 
 [provider]
 cluster = "localnet"

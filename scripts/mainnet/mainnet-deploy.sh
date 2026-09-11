@@ -36,7 +36,7 @@ DEPLOY_DIR="$PROJECT_ROOT/target/deploy"
 
 # Canonical program ID (must match declare_id! in programs/splitter/src/lib.rs
 # and keypairs/splitter-keypair.json). NEVER deploy mainnet to any other ID.
-CANONICAL_PROGRAM_ID="8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
+CANONICAL_PROGRAM_ID="724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
 
 # Fingerprint of the placeholder DEPLOYER bytes in constants.rs. If these are
 # still present, the binary would gate `initialize` to a throwaway address.

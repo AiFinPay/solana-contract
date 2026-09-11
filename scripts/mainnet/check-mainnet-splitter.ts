@@ -7,7 +7,7 @@
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 // Constants from the program (canonical mainnet program ID = declare_id!).
-const PROGRAM_ID = new PublicKey("8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y");
+const PROGRAM_ID = new PublicKey("724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD");
 const CONFIG_SEED = Buffer.from("config");
 const TOKEN_LIST_SEED = Buffer.from("token-list");
 const PROFILES_INDEX_SEED = Buffer.from("profiles-index");

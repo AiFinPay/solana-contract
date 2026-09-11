@@ -69,7 +69,7 @@ loadEnvFile(path.join(ROOT, ".env.production"), true);
 // ---------------------------------------------------------------------------
 // Constants (must match programs/splitter/src/constants.rs; canonical mainnet ID)
 // ---------------------------------------------------------------------------
-const PROGRAM_ID = address("8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y");
+const PROGRAM_ID = address("724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD");
 const CONFIG_SEED = new TextEncoder().encode("config");
 const TOKEN_LIST_SEED = new TextEncoder().encode("token-list");
 const PROFILES_INDEX_SEED = new TextEncoder().encode("profiles-index");
