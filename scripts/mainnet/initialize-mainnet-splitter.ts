@@ -64,7 +64,7 @@ function loadEnvFile(envPath: string, overwrite = false) {
 }
 
 const ROOT = path.join(__dirname, "..", "..");
-loadEnvFile(path.join(ROOT, ".env.production"));
+loadEnvFile(path.join(ROOT, ".env.production"), true);
 
 // ---------------------------------------------------------------------------
 // Constants (must match programs/splitter/src/constants.rs; canonical mainnet ID)
