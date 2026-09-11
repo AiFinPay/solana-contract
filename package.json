@@ -1,0 +1,37 @@
+{
+	"scripts": {
+		"test:ts": "tsc && mocha target/tests/**/*.js",
+		"test:ts:localnet": "ANCHOR_PROVIDER_URL=http://localhost:8899 ANCHOR_WALLET=~/.config/solana/id.json mocha target/tests/**/*.js",
+		"check:devnet": "node target/scripts/check-devnet-splitter.js",
+		"build:check-devnet": "tsc scripts/devnet/check-devnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"initialize:devnet": "node target/scripts/initialize-devnet-splitter.js",
+		"build:initialize-devnet": "tsc scripts/devnet/initialize-devnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"configure:devnet": "node target/scripts/configure-route.js",
+		"build:configure-devnet": "tsc scripts/devnet/configure-route.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"check:mainnet": "node target/scripts/check-mainnet-splitter.js",
+		"build:check-mainnet": "tsc scripts/mainnet/check-mainnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"initialize:mainnet": "node target/scripts/initialize-mainnet-splitter.js",
+		"build:initialize-mainnet": "tsc scripts/mainnet/initialize-mainnet-splitter.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"configure:mainnet": "node target/scripts/configure-mainnet-route.js",
+		"build:configure-mainnet": "tsc scripts/mainnet/configure-mainnet-route.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"rotate:signer": "node target/scripts/rotate-signer-role.js",
+		"build:rotate-signer": "tsc scripts/signer/rotate-signer-role.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"test:signer": "pnpm build:signer-test && mocha target/scripts/signer-parity.test.js",
+		"build:signer-test": "tsc scripts/signer/signer-parity.test.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node,mocha --outDir target/scripts",
+		"check:env:mainnet": "node target/scripts/check-env.js",
+		"build:check-env": "tsc scripts/mainnet/check-env.ts --target ES2020 --module commonjs --esModuleInterop --skipLibCheck --ignoreConfig --types node --outDir target/scripts",
+		"deploy:ledger": "./scripts/mainnet/ledger-deploy.sh",
+		"deploy:ledger:yes": "./scripts/mainnet/ledger-deploy.sh --yes"
+	},
+	"devDependencies": {
+		"@coral-xyz/borsh": "^0.32.1",
+		"@daochild/agents-config": "^1.2.1",
+		"@noble/curves": "^2.4.0",
+		"@solana/kit": "^8.2.0",
+		"@solana/web3.js": "^1.98.4",
+		"@types/mocha": "^10.0.10",
+		"@types/node": "^26.4.1",
+		"mocha": "^12.0.0",
+		"typescript": "^7.0.2"
+	}
+}

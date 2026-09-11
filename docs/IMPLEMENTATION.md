@@ -1,0 +1,131 @@
+# Implementation Status
+
+This document tracks the **current state** of the AiFinPay Solana
+Splitter implementation against the v1.4 specification. It is updated
+each time a feature is delivered, refactored, or removed.
+
+One program is in scope:
+
+- `splitter` — full registry-based program under `programs/splitter/`.
+
+## Status legend
+
+- ✅ Done — code shipped, tests passing, audit-ready.
+- 🟡 Partial — wired but missing tests, docs, or polish.
+- ⏳ Planned — designed, not started.
+- ❌ Removed — feature was removed; see git history.
+
+## Instruction surface
+
+### `splitter`
+
+| Instruction             | Status | Handler file                            | Tests |
+|-------------------------|:-----:|------------------------------------------|-------|
+| `initialize`            |  ✅   | `instructions/initialize.rs`             | litesvm happy path |
+| `settle_native`         |  ✅   | `instructions/settle_native.rs`          | inline helpers only |
+| `settle_stable`         |  ✅   | `instructions/settle_stable.rs`          | inline helpers only |
+| `quote_total`           |  ✅   | `instructions/quote_total.rs`            | inline helpers only |
+| `pause` / `unpause`     |  ✅   | `instructions/pause.rs`, `unpause.rs`    | — |
+| `set_treasury`          |  ✅   | `instructions/set_treasury.rs`           | — |
+| `configure_route`       |  ✅   | `instructions/configure_route.rs`        | — |
+| `enable_route`          |  ✅   | `instructions/enable_route.rs`           | — |
+| `disable_route`         |  ✅   | `instructions/disable_route.rs`          | — |
+| `set_whitelisted_tokens`|  ✅   | `instructions/set_whitelisted_tokens.rs` | — |
+| `grant_signer_role`     |  ✅   | `instructions/grant_signer_role.rs`      | — |
+| `rotate_signer_role`    |  ✅   | `instructions/rotate_signer_role.rs`     | — |
+| `rotate_admin_role`     |  ✅   | `instructions/rotate_admin_role.rs`      | — |
+| `grant_pauser_role`     |  ✅   | `instructions/grant_pauser_role.rs`      | — |
+| `rotate_pauser_role`    |  ✅   | `instructions/rotate_pauser_role.rs`     | — |
+
+## State accounts
+
+| Account                | Status | Owner         |
+|------------------------|:------:|----------------|
+| `Config`               |  ✅    | admin          |
+| `TokenList`            |  ✅    | admin          |
+| `RouteProfileEntry`    |  ✅    | admin          |
+| `ProfilesIndex`        |  ✅    | admin          |
+| `PayerNonce`           |  ✅    | implicit (PDA) |
+| `ConsumedNonce`        |  ✅    | implicit (PDA) |
+| `Quote` (instruction payload) | ✅ | n/a |
+| `Payment` event        |  ✅    | emitted on success |
+| `TreasuryUpdated` event|  ✅    | emitted on `set_treasury` |
+
+## Cross-chain parity
+
+The following fields are shared with EVM v1.4 and MUST match.
+
+| Field                  | Status     | Notes                                  |
+|------------------------|:----------:|----------------------------------------|
+| `EIP712_NAME`          | ✅ match   | `AiFinPayB2BSplitter`                  |
+| `EIP712_VERSION`       | ✅ match   | `"1"`                                  |
+| `DOMAIN_TYPEHASH`      | ✅ match   | EVM v1.4 deployment                    |
+| `QUOTE_TYPEHASH`       | ✅ match   | EVM v1.4 deployment                    |
+| `ROUTE_AGENT_X402`     | ✅ match   | EVM v1.4 deployment                    |
+| `ROUTE_MERCHANT_AIFP1` | ✅ match   | EVM v1.4 deployment                    |
+| `MAX_TREASURY_BPS`     | ✅ match   | 500                                    |
+| `MAX_IP_CREATOR_BPS`   | ✅ match   | 100                                    |
+
+## CI
+
+`.github/workflows/ci.yml` runs on every PR and push to `main` / `dev`:
+
+1. `cargo fmt --check`
+2. `cargo test --locked`
+3. `cargo clippy --all-targets -- -D warnings`
+4. `anchor build`
+
+All steps run from the repo root because the workspace is defined at the
+root level (`Cargo.toml` with `members = ["programs/*"]`).
+
+## Known issues / TODO
+
+- [x] **CI working-directory** — `.github/workflows/ci.yml` was updated
+      to run from the repo root; the workspace members live under
+      `programs/`. Verify on next CI run.
+- [x] **Off-chain signer backend** — `scripts/signer/` ships the
+      production quote-signing module: `quote.ts` (digest mirror),
+      `signer.ts` (`SignerBackend` port + dev-only local adapter;
+      KMS adapter is the documented extension point),
+      `rotate-signer-role.ts` (one-admin-tx hot-key rotation).
+      TS↔Rust digest parity is pinned both sides
+      (`digest_fixture_for_ts_parity` in `lib.rs`,
+      `pnpm test:signer`). No Ledger-per-quote needed: the cold
+      admin authorizes the hot key once.
+- [ ] **Stable-settlement integration test** — only the `initialize`
+      flow is covered by `litesvm` today. Add a positive and a negative
+      `settle_stable` test once test keypairs are generated.
+- [ ] **Native-settlement integration test** — same as above; depends on
+      a pre-generated secp256k1 keypair fixture.
+- [ ] **EIP-712 vector regression** — pin the byte-for-byte digest for a
+      canonical quote and cross-check against the EVM v1.4 fixture.
+- [ ] **Audit report** — once `senior-solidity-auditor` /
+      `senior-software-architect` reviews land, attach the report under
+      `audits/`.
+
+## Test coverage
+
+### `splitter`
+
+| Surface                            | Coverage | Notes                                |
+|------------------------------------|:--------:|--------------------------------------|
+| `quote_hash` determinism           |   ✅     | inline test in `lib.rs`              |
+| Route constant invariants          |   ✅     | inline test in `lib.rs`              |
+| `split_gross` — zero fees          |   ✅     | inline test                          |
+| `split_gross` — 1% treasury        |   ✅     | inline test                          |
+| `split_gross` — zero amount        |   ✅     | inline test                          |
+| `split_gross` — missing IP creator |   ✅     | inline test                          |
+| `initialize` (litesvm)            |   ✅     | `tests/test_initialize.rs`             |
+| `settle_native` happy path         |   ⏳    |                                      |
+| `settle_native` invalid signature  |   ⏳    |                                      |
+| `settle_stable` happy path         |   ⏳    |                                      |
+| `settle_stable` unsupported mint   |   ⏳    |                                      |
+| `quote_total` view                 |   ⏳    |                                      |
+| Pause / unpause                    |   ⏳    |                                      |
+| Role rotation invariants           |   ⏳    |                                      |
+
+## Deployment status
+
+- **Localnet**: ✅ builds and tests pass.
+- **Devnet**: ⏳ pending audit.
+- **Mainnet**: ❌ not deployed; blocked on audit + EVM v1.4 cutover.

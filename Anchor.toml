@@ -1,0 +1,26 @@
+skip_local_validator = true
+
+[toolchain]
+solana_version = "4.1.2"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.mainnet]
+splitter = "724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
+
+[programs.devnet]
+splitter = "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
+
+[programs.localnet]
+splitter = "724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+build_localnet = "cargo build-sbf"
+
+[hooks]

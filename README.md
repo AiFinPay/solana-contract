@@ -1,96 +1,223 @@
-# AIFinPay Protocol — v0.5.3
+# AiFinPay Solana Splitter
 
-**The financial infrastructure for autonomous AI agents on Solana.**
+Signed, multi-route gross settlement program on Solana. v1.4 — the
+Solana counterpart of the AiFinPay EVM splitter.
 
-AIFinPay is an open protocol that gives AI agents the ability to hold compute credits, make payments, and prove identity — all on-chain, without custodians.
+A payer submits a signed quote; the program splits the gross amount into
+a merchant leg, an optional protocol-treasury fee, and an optional
+IP-creator royalty, crediting each leg atomically in a single
+transaction.
 
----
+## Program ID
 
-## Live on Solana Mainnet
+See [`Anchor.toml`](./Anchor.toml).
 
-| | |
-|---|---|
-| **Program ID** | `5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2` |
-| **Protocol Version** | 5.3 |
-| **Network** | Solana Mainnet Beta |
-| **Verify on Solscan** | https://solscan.io/account/5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2 |
+## Build
 
----
+```bash
+anchor build
+anchor keys sync
+```
 
-## What It Does
+Produces `target/deploy/splitter.so`.
 
-### Compute Credits (mSECCO)
-Agents purchase mSECCO credits using USDC or USDT. 1 USD = 100 mSECCO. Credits are locked inside the protocol — there is no withdraw. They can only be spent on compute via the AiFinPay network.
+## Test
 
-### Seat PDAs
-Every agent that joins gets a **Seat PDA** — an on-chain record of their identity, compute balance, and activity. Verifiable by any scanner.
+```bash
+cargo test
+```
 
-### Agent Passports
-Agents receive an on-chain **passport** at birth — a permanent identity PDA tied to their wallet. Status progresses: `BORN → ACTIVE → VERIFIED_B2B`.
+Runs inline unit tests (`lib.rs`) and the `litesvm` integration test
+(`programs/splitter/tests/test_initialize.rs`).
 
-### B2B Splitter
-Businesses route payments through the protocol. Each transaction atomically splits:
-- **98.99%** → merchant
-- **1.00%** → protocol treasury
-- **0.01%** → IP creator
+## Lint
 
-### Non-Custodial (BYOK)
-Businesses bring their own keys. AIFinPay never holds funds — it routes them.
+```bash
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+```
 
----
+The CI pipeline in `.github/workflows/ci.yml` runs all four checks
+(formatting, tests, clippy, SBF build) on every PR and push to `main` /
+`dev`.
 
-## Instructions
+## Deployment
 
-| Instruction | Description |
-|---|---|
-| `reserve_seat_sol` | Buy mSECCO with SOL |
-| `reserve_seat_spl` | Buy mSECCO with USDC/USDT |
-| `top_up_sol` | Add more mSECCO via SOL |
-| `top_up_spl` | Add more mSECCO via USDC/USDT |
-| `mint_passport` | Create Agent Passport PDA |
-| `register_partner` | Register a B2B partner (admin-only) |
-| `b2b_pay` | Route B2B payment with atomic split |
-| `initialize_config` | Initialize protocol config (admin-only) |
-| `pause` / `unpause` | Emergency pause (admin-only) |
-| `claim_referral_bonus` | Claim referral mSECCO bonus |
+Deploy scripts live under `scripts/` organized by cluster:
 
----
+```
+scripts/
+├── devnet/
+│   ├── devnet-deploy.sh          # Deploy to devnet (file keypair)
+│   ├── calculate-deploy-cost.sh  # Estimate deploy cost
+│   ├── calculate-initialize-cost.sh  # Estimate initialize cost
+│   ├── simulate-devnet-deploy.sh     # Dry-run deploy
+│   ├── initialize-devnet-splitter.ts # Initialize after deploy
+│   ├── configure-route.ts            # Configure settlement routes
+│   └── check-devnet-splitter.ts      # Verify deployment state
+├── mainnet/
+│   ├── mainnet-deploy.sh         # Deploy to mainnet (Ledger)
+│   ├── calculate-deploy-cost.sh  # Estimate deploy cost
+│   ├── calculate-initialize-cost.sh  # Estimate initialize cost
+│   ├── simulate-mainnet-deploy.sh    # Dry-run deploy
+│   ├── initialize-mainnet-splitter.ts
+│   ├── configure-mainnet-route.ts
+│   └── check-mainnet-splitter.ts
+└── localnet/
+    └── localnet-deploy.sh        # Deploy to local validator
+```
 
-## Supported Assets
+### Estimate costs
 
-| Asset | Mint Address |
-|---|---|
-| USDC | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
-| USDT | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+Before deploying, check the estimated SOL required:
 
----
+```bash
+# Deploy cost (program rent + transaction fees)
+./scripts/devnet/calculate-deploy-cost.sh
 
-## Manifesto
+# Initialize cost (PDA rent for Config, TokenList, ProfilesIndex)
+./scripts/devnet/calculate-initialize-cost.sh
+```
 
-Protocol parameters are machine-readable in [`manifesto.json`](./manifesto.json).
+Replace `devnet` with `mainnet` for mainnet estimates.
 
-**Manifesto v5.3 SHA-256:**
-`d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5`
+### Deploy to devnet
 
----
+```bash
+# 1. Fund the deployer
+solana airdrop 2 --keypair keypairs/devnet-deployer.json --url devnet
 
-## For AI Agents
+# 2. Deploy
+./scripts/devnet/devnet-deploy.sh
 
-This repository is intentionally machine-readable. Parse `manifesto.json` to get:
-- Program ID
-- Supported asset mints
-- Exchange rate (1 USD = 100 mSECCO)
-- Fee structure
-- Error codes
+# 3. Initialize (set required env vars first)
+export ADMIN_PUBKEY="<admin solana address>"
+export PAUSER_PUBKEY="<pauser solana address>"
+export TREASURY_PUBKEY="<treasury solana address>"
+export SIGNER_ETH_PUBKEY="<secp256k1 uncompressed 64-byte hex (no 0x)>"
+export STABLECOINS="[<comma-separated mint pubkeys>]"
+export ROUTE_IDS='["<route_id_hex_1>","<route_id_hex_2>"]'
+export TREASURY_BPS='[<bps list>]'
+export IP_CREATOR_BPS='[<bps list>]'
 
----
+pnpm exec ts-node scripts/devnet/initialize-devnet-splitter.ts
 
-## Security
+# 4. Verify
+pnpm exec ts-node scripts/devnet/check-devnet-splitter.ts
+```
 
-Contract audited by **Pironmind Tech** (2026-04-23). All findings resolved in v0.5.3.
+### Deploy to localnet
 
----
+```bash
+# Start local validator
+solana-test-validator --reset
 
-## Built for Colosseum Frontier Hackathon
+# Deploy (auto-airdrops if balance is low)
+./scripts/localnet/localnet-deploy.sh
+```
 
-Part of the AiFinPay ecosystem. Migrating to MIRA Network L1 post-hackathon.
+### Deploy to mainnet (Ledger)
+
+Before using a Ledger for deployment:
+
+1. Close Ledger Live.
+2. Connect the Ledger via USB, unlock it, and open the **Solana** app
+   (device must show "Application is ready").
+3. Fund the Ledger wallet with at least ~3 SOL.
+
+```bash
+# Deploy (requires DEPLOYER env or --deployer flag)
+SPLITTER_DEPLOYER="<your-ledger-pubkey>" ./scripts/mainnet/mainnet-deploy.sh
+
+# Or with explicit flags
+./scripts/mainnet/mainnet-deploy.sh \
+  --deployer "<your-ledger-pubkey>" \
+  --keypair "usb://ledger?key=0"
+```
+
+The mainnet script requires typing `DEPLOY-MAINNET` to confirm.
+
+### Useful commands
+
+```bash
+# Check balance
+solana balance <WALLET_ADDRESS> --url https://api.devnet.solana.com
+
+# Airdrop on devnet
+solana airdrop 2 --keypair keypairs/devnet-deployer.json --url devnet
+
+# Close a deployed program (recovers rent)
+solana program close <PROGRAM_ID> --keypair <KEYPAIR> --url devnet
+```
+
+## Overview
+
+The single canonical Anchor **v1.1.2** program is:
+
+- `programs/splitter/` — full-featured registry-based splitter.
+
+Two settlement routes at v1.4:
+
+- `ROUTE_AGENT_X402` — agent-to-agent, default fees 0 / 0 bps.
+- `ROUTE_MERCHANT_AIFP1` — merchant, default fee 100 / 0 bps.
+
+Fee caps: treasury ≤ 500 bps (5 %), IP creator ≤ 100 bps (1 %).
+Signer verification via secp256k1 ecrecover (`solana-secpx256k1-recover`,
+`solana-keccak-hasher`).
+Tests use `litesvm`, not Anchor's JS harness.
+
+## Documentation
+
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — module layout, on-chain
+  state, settlement flows, RBAC.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — workflow, code conventions,
+  cross-chain parity rules.
+- [`SECURITY.md`](./SECURITY.md) — threat model, security-critical
+  invariants, incident response.
+- [`docs/BUSINESS_LOGIC.md`](./docs/BUSINESS_LOGIC.md) — business rules
+  in operations-friendly language.
+- [`docs/IMPLEMENTATION.md`](./docs/IMPLEMENTATION.md) — feature status,
+  coverage, known issues.
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records.
+- [`AGENTS.md`](./AGENTS.md) — agent / opencode instructions.
+- [`programs/splitter/README.md`](./programs/splitter/README.md) — full splitter program reference.
+
+## Repository Layout
+
+```
+.
+├── programs/splitter/          # Full-featured Anchor program (cdylib + lib)
+│   ├── src/
+│   │   ├── lib.rs              # declare_id, #[program] entrypoints, inline tests
+│   │   ├── constants.rs        # EIP-712 fields, route IDs, seeds, caps
+│   │   ├── state.rs            # Config, TokenList, profiles, nonces, Quote
+│   │   ├── error.rs            # ErrorCode variants
+│   │   ├── utils.rs            # digest, recover_signer, split_gross, events
+│   │   └── instructions/       # one file per instruction handler
+│   ├── tests/test_initialize.rs    # litesvm integration test
+│   ├── Cargo.toml
+│   ├── AGENTS.md               # Program-level agent instructions
+│   └── README.md               # Program-level quick reference
+├── docs/                       # Business logic, implementation status, ADRs
+├── .github/workflows/ci.yml    # fmt + test + clippy + build-sbf
+├── Anchor.toml                 # `skip_local_validator = true`
+├── Cargo.toml                  # workspace root
+└── rust-toolchain.toml         # pins Rust 1.89.0
+```
+
+## Cross-Chain Parity
+
+This program is intentionally byte-compatible with the EVM v1.4
+deployment. The following fields are part of the cross-chain contract
+and changing them is a coordinated upgrade:
+
+- EIP-712 `name`, `version`, `DOMAIN_TYPEHASH`, `QUOTE_TYPEHASH`.
+- Route IDs `ROUTE_AGENT_X402`, `ROUTE_MERCHANT_AIFP1`.
+- Fee caps `MAX_TREASURY_BPS = 500`, `MAX_IP_CREATOR_BPS = 100`.
+- The order of fields inside `quote_hash()`.
+
+See [`CONTRIBUTING.md` §7](./CONTRIBUTING.md#7-cross-chain-parity-is-sacred).
+
+## License
+
+TBD.
