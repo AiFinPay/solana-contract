@@ -11,7 +11,7 @@ skip-lint = false
 splitter = "724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
 
 [programs.devnet]
-splitter = "724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
+splitter = "8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
 
 [programs.localnet]
 splitter = "724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
