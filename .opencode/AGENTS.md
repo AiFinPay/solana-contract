@@ -48,6 +48,15 @@ The local `.opencode/opencode.json` denies certain operations. Respect them:
 
 When in doubt, ask before executing a bash command.
 
+## Secret hygiene
+
+- **Never** read private key material: contents of `keypairs/*.json`,
+  `*.pem`, or any file holding secret bytes. Verify only existence and
+  metadata (e.g. `ls -la`); never `cat`, Read, or print secrets into logs,
+  terminal output, or chat.
+- **Never** export, copy, or move private keys. If a script needs a keypair
+  path, pass the path — do not dump the file content.
+
 ## Code change discipline
 
 - Make **minimal** changes to achieve the goal.
