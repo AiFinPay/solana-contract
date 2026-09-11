@@ -98,15 +98,19 @@ if [[ ! -f "$PROGRAM_SO" ]]; then
     fi
     log "Program binary not found. Building $PROGRAM_NAME..."
     cd "$PROJECT_ROOT"
-    cargo build-sbf --manifest-path "$PROGRAM_MANIFEST"
+    cargo build-sbf --arch v3 --manifest-path "$PROGRAM_MANIFEST"
 fi
 
 PROGRAM_SIZE=$(stat -f%z "$PROGRAM_SO" 2>/dev/null || stat -c%s "$PROGRAM_SO")
 log "Program size    : $PROGRAM_SIZE bytes ($(echo "scale=2; $PROGRAM_SIZE / 1024" | bc) KB)"
 
-# Generate a fresh throwaway program keypair in the deployments directory.
-PROGRAM_KEYPAIR="$DEPLOYMENTS_DIR/program-keypair-${TS}.json"
-solana-keygen new --no-passphrase -s -o "$PROGRAM_KEYPAIR" > /dev/null 2>&1
+# Use the canonical program keypair (matches Anchor.toml program ID).
+PROGRAM_KEYPAIR="$KEYPAIR_DIR/splitter-keypair.json"
+if [[ ! -f "$PROGRAM_KEYPAIR" ]]; then
+    log "Canonical program keypair not found: $PROGRAM_KEYPAIR"
+    log "Generate one with: solana-keygen new --no-passphrase -s -o $PROGRAM_KEYPAIR"
+    exit 1
+fi
 PROGRAM_ID=$(solana-keygen pubkey "$PROGRAM_KEYPAIR")
 log "Program ID      : $PROGRAM_ID"
 log "Program keypair : $PROGRAM_KEYPAIR"

@@ -24,7 +24,7 @@ pub struct Initialize<'info> {
         seeds = [CONFIG_SEED],
         bump
     )]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(
         init,
@@ -33,7 +33,7 @@ pub struct Initialize<'info> {
         seeds = [TOKEN_LIST_SEED],
         bump
     )]
-    pub token_list: Account<'info, TokenList>,
+    pub token_list: Box<Account<'info, TokenList>>,
 
     #[account(
         init,
@@ -42,7 +42,7 @@ pub struct Initialize<'info> {
         seeds = [crate::constants::PROFILES_INDEX_SEED],
         bump
     )]
-    pub profiles: Account<'info, ProfilesIndex>,
+    pub profiles: Box<Account<'info, ProfilesIndex>>,
 
     pub system_program: Program<'info, System>,
 }

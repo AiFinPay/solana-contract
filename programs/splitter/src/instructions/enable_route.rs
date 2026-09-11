@@ -8,10 +8,10 @@ use crate::{
 #[derive(Accounts)]
 pub struct EnableRoute<'info> {
     #[account(mut, seeds = [crate::constants::CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(mut, seeds = [crate::constants::PROFILES_INDEX_SEED], bump = profiles.bump)]
-    pub profiles: Account<'info, ProfilesIndex>,
+    pub profiles: Box<Account<'info, ProfilesIndex>>,
 
     pub admin: Signer<'info>,
 }

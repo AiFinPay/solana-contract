@@ -5,7 +5,7 @@ use crate::{error::ErrorCode, state::Config, utils::emit_treasury_updated};
 #[derive(Accounts)]
 pub struct SetTreasury<'info> {
     #[account(mut, seeds = [crate::constants::CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     pub admin: Signer<'info>,
 }

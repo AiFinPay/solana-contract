@@ -10,7 +10,7 @@ use crate::{
 #[instruction(nonce: u64)]
 pub struct SettleNative<'info> {
     #[account(mut, seeds = [crate::constants::CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(
         init_if_needed,
@@ -50,7 +50,7 @@ pub struct SettleNative<'info> {
     pub ip_creator: UncheckedAccount<'info>,
 
     #[account(mut, seeds = [crate::constants::PROFILES_INDEX_SEED], bump = profiles.bump)]
-    pub profiles: Account<'info, ProfilesIndex>,
+    pub profiles: Box<Account<'info, ProfilesIndex>>,
 
     pub system_program: Program<'info, System>,
 }

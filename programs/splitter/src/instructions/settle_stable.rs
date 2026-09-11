@@ -11,7 +11,7 @@ use crate::{
 #[instruction(nonce: u64)]
 pub struct SettleStable<'info> {
     #[account(seeds = [crate::constants::CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(
         init_if_needed,
@@ -35,14 +35,14 @@ pub struct SettleStable<'info> {
     pub payer: Signer<'info>,
 
     #[account(constraint = token_list.is_allowed(mint.key()))]
-    pub token_list: Account<'info, TokenList>,
+    pub token_list: Box<Account<'info, TokenList>>,
 
     /// Mint is a real SPL Mint; Anchor validates owner == token_program and
     /// deserializes the Mint layout. SOL-HIGH-002 / SOL-LOW-003.
     pub mint: Account<'info, Mint>,
 
     #[account(mut, seeds = [crate::constants::PROFILES_INDEX_SEED], bump = profiles.bump)]
-    pub profiles: Account<'info, ProfilesIndex>,
+    pub profiles: Box<Account<'info, ProfilesIndex>>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,

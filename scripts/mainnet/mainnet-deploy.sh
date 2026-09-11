@@ -219,9 +219,9 @@ else
     cd "$PROJECT_ROOT"
     if [[ -n "${SPLITTER_DEPLOYER:-}" ]]; then
         log "Baking SPLITTER_DEPLOYER=$SPLITTER_DEPLOYER into the binary."
-        SPLITTER_DEPLOYER="$SPLITTER_DEPLOYER" cargo build-sbf --manifest-path "$PROGRAM_MANIFEST"
+        SPLITTER_DEPLOYER="$SPLITTER_DEPLOYER" cargo build-sbf --arch v3 --manifest-path "$PROGRAM_MANIFEST"
     else
-        cargo build-sbf --manifest-path "$PROGRAM_MANIFEST"
+        cargo build-sbf --arch v3 --manifest-path "$PROGRAM_MANIFEST"
     fi
 fi
 

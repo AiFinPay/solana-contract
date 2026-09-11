@@ -113,7 +113,7 @@ if [[ ! -f "$PROGRAM_SO" ]]; then
     fi
     log "Program binary not found. Building $PROGRAM_NAME..."
     cd "$PROJECT_ROOT"
-    cargo build-sbf --manifest-path "$PROGRAM_MANIFEST"
+    cargo build-sbf --arch v3 --manifest-path "$PROGRAM_MANIFEST"
 fi
 
 PROGRAM_SIZE=$(stat -f%z "$PROGRAM_SO" 2>/dev/null || stat -c%s "$PROGRAM_SO")

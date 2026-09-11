@@ -10,10 +10,10 @@ use crate::{
 #[derive(Accounts)]
 pub struct SetWhitelistedTokens<'info> {
     #[account(seeds = [crate::constants::CONFIG_SEED], bump = config.bump)]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(mut, seeds = [crate::constants::TOKEN_LIST_SEED], bump = token_list.bump)]
-    pub token_list: Account<'info, TokenList>,
+    pub token_list: Box<Account<'info, TokenList>>,
 
     pub admin: Signer<'info>,
 

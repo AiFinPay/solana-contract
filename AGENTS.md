@@ -14,15 +14,20 @@ Anchor/Sealevel Solana program (v1.4) for signed, multi-route gross settlement.
 ```bash
 # Rust toolchain is pinned to 1.89.0 (rust-toolchain.toml)
 # All commands run from repo root (workspace level).
-anchor build                             # SBF build (wraps cargo build-sbf)
-anchor build --package splitter          # Build splitter only
-anchor keys sync                         # Sync program ID with keypair
-cargo test                               # All tests (unit + litesvm integration)
-cargo test --package splitter            # Splitter tests only
-cargo fmt --check                        # Check formatting
+cargo build-sbf --arch v3                  # SBF build (v3 arch required)
+cargo build-sbf --arch v3 -p splitter     # Build splitter only
+anchor keys sync                          # Sync program ID with keypair
+cargo test                                # All tests (unit + litesvm integration)
+cargo test --package splitter             # Splitter tests only
+cargo fmt --check                         # Check formatting
 cargo clippy --all-targets -- -D warnings  # Lint
 ```
 
+> **Why not `anchor build`?** `anchor build` calls `cargo build-sbf` without
+> `--arch v3`, producing a v0 binary. The `[scripts] build` in Anchor.toml
+> is dead config — `anchor build` ignores `[scripts]`. Use
+> `cargo build-sbf --arch v3` directly.
+>
 > **Why not `anchor test`?** It starts a local validator, which conflicts
 > with `skip_local_validator = true` in Anchor.toml. Tests use `litesvm`
 > (in-process), so run `cargo test` directly.
@@ -32,7 +37,7 @@ cargo clippy --all-targets -- -D warnings  # Lint
 1. `cargo fmt --check`
 2. `cargo test --locked`
 3. `cargo clippy --all-targets -- -D warnings`
-4. `anchor build`
+4. `cargo build-sbf --arch v3`
 
 ## Deployment
 
@@ -76,7 +81,7 @@ scripts/              # Deployment / utility scripts
 ## Architecture Notes
 
 - Program ID: see [`Anchor.toml`](./Anchor.toml)
-- Uses `anchor-lang` 1.1.2 with `init-if-needed` feature
+- Uses `anchor-lang` 1.2.0 with `init-if-needed` feature
 - Uses `anchor-spl` with token feature for SPL token operations
 - Tests use `litesvm` (Solana program unit test framework), NOT Anchor's JS test harness
 - Route IDs (ROUTE_AGENT_X402, ROUTE_MERCHANT_AIFP1) are hardcoded constants that must match EVM v1.4

@@ -188,7 +188,7 @@ if [[ "$SKIP_BUILD" == "true" ]]; then
 else
     log "Building with SPLITTER_DEPLOYER=$SPLITTER_DEPLOYER ..."
     cd "$PROJECT_ROOT"
-    SPLITTER_DEPLOYER="$SPLITTER_DEPLOYER" cargo build-sbf --manifest-path programs/splitter/Cargo.toml
+    SPLITTER_DEPLOYER="$SPLITTER_DEPLOYER" cargo build-sbf --arch v3 --manifest-path programs/splitter/Cargo.toml
     ok "Build complete"
 fi
 

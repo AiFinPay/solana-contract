@@ -21,7 +21,6 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-build = "cargo build-sbf --arch v3"
-build_localnet = "cargo build-sbf --arch v3"
+build_localnet = "cargo build-sbf"
 
 [hooks]
