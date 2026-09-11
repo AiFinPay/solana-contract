@@ -199,7 +199,7 @@ mod tests {
         // Pinned value — mirrors scripts/signer/signer-parity.test.ts.
         assert_eq!(
             hex,
-            "a2bc60ad146e27c0a8e3fcb14c8b246751c0fefd623b0b8f72f903576e4aae9c"
+            "db35461e3e6c1b93efced0c19f6018764482afb55db5157171e4a5e7a4cb5743"
         );
     }
 
