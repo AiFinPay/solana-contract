@@ -1,0 +1,34 @@
+name: Solana Splitter CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.89.0
+        with:
+          components: rustfmt, clippy
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v4.1.2/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      - name: Rust formatting
+        run: cargo fmt --check
+      - name: SBF build (required by integration tests)
+        run: cargo build-sbf --arch v3
+      - name: Rust tests
+        run: cargo test --locked
+      - name: Rust clippy
+        run: cargo clippy --all-targets -- -D warnings

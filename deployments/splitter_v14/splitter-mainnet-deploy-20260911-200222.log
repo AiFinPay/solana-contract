@@ -1,0 +1,12 @@
+2026-09-11T20:02:22+02:00 Program ID (keypair file): 724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD
+2026-09-11T20:02:22+02:00 Canonical program ID confirmed: 724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD
+2026-09-11T20:02:22+02:00 DEPLOYER override : CQJfGfRwj9ru6ydd79XgEk6imUWgictdJgKZY87uxUgD (baked via build.rs, no code change)
+2026-09-11T20:02:22+02:00 Deployer wallet : CQJfGfRwj9ru6ydd79XgEk6imUWgictdJgKZY87uxUgD
+2026-09-11T20:02:25+02:00 Mainnet balance : 2.998052118 SOL
+2026-09-11T20:02:25+02:00 Building splitter (SBF)...
+2026-09-11T20:02:25+02:00 Baking SPLITTER_DEPLOYER=CQJfGfRwj9ru6ydd79XgEk6imUWgictdJgKZY87uxUgD into the binary.
+2026-09-11T20:02:28+02:00 Program size    : 323816 bytes (316.22 KB)
+2026-09-11T20:02:29+02:00 No existing program at 724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD — this is a FRESH deploy.
+2026-09-11T20:02:30+02:00 Balance before  : 2.998052118 SOL
+2026-09-11T20:02:30+02:00 Deploying splitter to mainnet...
+Signature: 66Wiv8uFvfaj5hrGFrjnEte6EdwQhFSpzxku62LYTZEwr7HKJYUPpmzbozyaBd6MkXTLnDudaXaAGS6sw49d1Ssx
