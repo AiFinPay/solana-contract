@@ -49,18 +49,6 @@ Two routes are defined at v1.4:
 | `ROUTE_AGENT_X402`    | `0x8dc505be…`         | 0                    | 0              |
 | `ROUTE_MERCHANT_AIFP1`| `0xb9dbf587…`         | 100 (1 %)            | 0              |
 
-### Settlement
-
-A successful on-chain transaction that:
-
-1. Verifies the quote against the configured `signer`.
-2. Splits `gross_amount` into `(merchant, treasury, ip_creator)`.
-3. Credits each leg atomically.
-4. Marks the `(payer, nonce)` pair as consumed and bumps the payer's
-   nonce counter.
-
-A quote can be settled **at most once**.
-
 ## 3. Business Rules
 
 ### R-1: One signing authority
