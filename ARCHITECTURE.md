@@ -21,7 +21,7 @@ on Solana); see ADR-0002.
                  ┌──────────────────────────────────────────┐
                  │           Off-chain payer API            │
                  │  builds Quote + secp256k1 signature over │
-                 │         EIP-712-style digest             │
+                 │          chain-specific digest           │
                  └─────────────────────┬────────────────────┘
                                        │  (signed Quote)
               ┌────────────────────────┼────────────────────────┐
@@ -141,7 +141,7 @@ updated atomically with the same instruction.
 
 ## 5. Quote Schema and Signing
 
-`Quote` is the canonical EIP-712-style payment intent (see `state.rs:71`):
+`Quote` is the canonical v1.4 payment intent:
 
 ```
 payer           Pubkey
@@ -253,7 +253,7 @@ Changes to the shared items require a coordinated upgrade of the EVM contract.
 Every successful settlement emits an Anchor `Payment` event with:
 
 ```
-payment_id        : keccak256 of canonical tuple
+payment_id        : SHA-256 of the canonical tuple
 payer, merchant, token, gross_amount
 merchant_amount, treasury_amount, ip_creator_amount
 valid_until, route_id, order_id_hash
@@ -270,7 +270,7 @@ indexers can deduplicate retries.
 - Rust toolchain is pinned via `rust-toolchain.toml` to `1.89.0`.
 - `cargo test` runs the inline unit tests in each program's `lib.rs` and the
   `litesvm`-based integration test in `programs/splitter/tests/test_initialize.rs`.
-- `anchor build` is the deploy gate. It produces
+- `cargo build-sbf --arch v3` builds the deployable SBF artifact at
   `target/deploy/splitter.so`.
 - The CI pipeline in `.github/workflows/ci.yml` runs formatting, tests,
   clippy, and SBF build on every PR and push to `main` / `dev`.

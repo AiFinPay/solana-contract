@@ -5,21 +5,13 @@
 If you discover a security issue in the AiFinPay Solana Splitter, please
 **do not open a public GitHub issue**.
 
-Email **security@aifinpay.example** with:
+Use GitHub's private vulnerability reporting feature if it is enabled for
+this repository; otherwise contact the maintainers through an established
+private channel. Do not disclose vulnerability details publicly.
 
-- A clear description of the issue and impact.
-- Reproduction steps (transaction hash, accounts, signatures — never send
-  the **private key** of any signer).
-- Your assessment of severity (Critical / High / Medium / Low).
-
-We commit to:
-
-- Acknowledgement within **72 hours**.
-- A triage decision within **7 days**.
-- A coordinated disclosure timeline agreed with the reporter.
-
-We follow responsible disclosure and credit reporters in the post-mortem
-unless anonymity is requested.
+Include a description of the issue and impact, reproduction details, and
+relevant transaction/account data. Never send the **private key** of any
+signer.
 
 ## Threat Model
 
@@ -95,14 +87,14 @@ These properties are checked by `cargo test` and MUST remain green:
 
 #### `splitter`
 
-1. `anchor build` produces `target/deploy/splitter.so`. Verify the
+1. `cargo build-sbf --arch v3` produces `target/deploy/splitter.so`. Verify the
    file size matches the previous release within ±5%.
 2. Verify the declared program ID matches the value in [`Anchor.toml`](./Anchor.toml).
 3. Use a multi-sig (Squads) for the `admin` on mainnet.
-4. Run `initialize` once, immediately transferring ownership of the
-   multi-sig.
-5. Confirm `quote_total` returns the expected splits for a dry-run quote
-   before opening the program to live traffic.
+4. Run `initialize` once for a new deployment; do not rerun it for the
+   existing mainnet deployment.
+5. Confirm `quote_total` returns the expected splits after initialization
+   or an upgrade.
 
 ### Incident response
 
@@ -116,10 +108,8 @@ These properties are checked by `cargo test` and MUST remain green:
 
 ## Audits
 
-This program is part of the v1.4 cross-chain release. Audit reports
-covering the Solana program are committed alongside this repo under
-`audits/`. Any deployment to a non-localnet cluster MUST be covered by a
-recent audit report.
+Audit coverage must be verified for each release. Any deployment to a
+non-localnet cluster MUST be covered by a recent audit report.
 
 If you are running a fork of this code, you are responsible for your own
 audit trail. See `CONTRIBUTING.md` for the review expectations that apply

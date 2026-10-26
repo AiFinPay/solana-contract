@@ -38,7 +38,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # ─── Defaults ────────────────────────────────────────────────────────────────
-CANONICAL_PROGRAM_ID="8dty5bD738Z9TzEkDu8vLSnhpJNWtEGMUEcYaKCUTY6y"
+CANONICAL_PROGRAM_ID="724Ut31i4ecY4dJ25z8HuZetu3A43xtNkPdk4JdbsfdD"
 LEDGER_INDEX=0
 SOLANA_URL="https://api.mainnet-beta.solana.com"
 CONFIRM="ask"
