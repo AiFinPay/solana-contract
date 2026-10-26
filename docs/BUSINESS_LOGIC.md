@@ -49,18 +49,6 @@ Two routes are defined at v1.4:
 | `ROUTE_AGENT_X402`    | `0x8dc505be…`         | 0                    | 0              |
 | `ROUTE_MERCHANT_AIFP1`| `0xb9dbf587…`         | 100 (1 %)            | 0              |
 
-### Settlement
-
-A successful on-chain transaction that:
-
-1. Verifies the quote against the configured `signer`.
-2. Splits `gross_amount` into `(merchant, treasury, ip_creator)`.
-3. Credits each leg atomically.
-4. Marks the `(payer, nonce)` pair as consumed and bumps the payer's
-   nonce counter.
-
-A quote can be settled **at most once**.
-
 ## 3. Business Rules
 
 ### R-1: One signing authority
@@ -70,12 +58,12 @@ signs every quote accepted by the program. Rotation is performed by the
 admin. The admin itself is rotatable by the current admin
 (`rotate_admin_role`); pauser and treasury are rotatable the same way.
 
-### R-2: Quotes are signed EIP-712-style
+### R-2: Solana quotes use a program-bound digest
 
-The on-chain digest is `keccak256(0x19 || 0x01 || domainSeparator ||
-quoteHash)`, matching the EVM v1.4 contract byte-for-byte. The signer
-field of EIP-712 is replaced by the Solana `program_id` to bind the
-signature to the deployment.
+The on-chain digest is `SHA-256(MESSAGE_DOMAIN_TAG || program_id ||
+Borsh(Quote))`. It is specific to Solana and differs from the EVM v1.4
+EIP-712 digest. The quote schema and business rules are shared across
+chains, but a signature is not interchangeable between them.
 
 ### R-3: Replay protection
 

@@ -19,8 +19,8 @@ of the existing EVM contract:
 - Chain-specific digest construction: Solana uses SHA-256 over a tagged,
   program-bound Borsh payload; EVM uses EIP-712 with keccak256.
 
-The Solana program must run as a single Anchor v1.1.2 program (cdylib
-+ lib) and integrate with SPL for stablecoin settlement. Native SOL
+The Solana program must run as a single Anchor program (cdylib + lib)
+and integrate with SPL for stablecoin settlement. Native SOL
 settlement is required as well — SPL token-2022 is not appropriate for
 the "agent pays merchant in SOL" use case.
 
@@ -140,16 +140,8 @@ is not part of the workflow.
 
 - Anchor's "no entrypoint" / "no-idl" features have to be opted into
   per build target.
-- The `increment.rs` template scaffolding is left in the tree and
-  requires a cleanup pass.
 - `litesvm` is younger than Anchor's JS harness; we accept the risk in
   exchange for a lighter CI.
-
-### Neutral
-
-- The CI workflow file currently points at a `splitter/` subdirectory
-  that does not exist. We will either restructure the repo or fix the
-  workflow in a follow-up ADR.
 
 ## Alternatives considered
 
@@ -164,10 +156,3 @@ is not part of the workflow.
    for free.
 4. **Token-2022 with transfer hooks** — rejected: would require every
    stablecoin issuer to opt in; we don't control the mints.
-
-## Follow-ups
-
-- [x] ADR-0002: clarify Solana digest binding decision.
-- [x] Remove `instructions/increment.rs` (template leftover) — not present in
-      current source tree.
-- [ ] Pin a cross-chain digest vector for regression testing.

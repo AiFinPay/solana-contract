@@ -3,6 +3,10 @@
 Program ID (canonical, всі кластери): see [`Anchor.toml`](./Anchor.toml)
 Код: `programs/splitter/`, скрипти: `scripts/{devnet,mainnet,localnet,signer}/`
 
+Канонічна програма вже розгорнута й працює в Solana mainnet. Цей документ
+описує первинне налаштування та майбутні апгрейди; `initialize` викликається
+лише один раз і не має повторно запускатися для чинного mainnet-деплою.
+
 ## Частина 1. Принцип роботи
 
 ### 1.1. Що робить програма
@@ -134,7 +138,7 @@ SPL whitelist: тільки мінти з `token_list` приймаються в
 ```bash
 rustc --version        # 1.89.0, пін через rust-toolchain.toml
 solana --version       # CLI під Anchor toolchain 4.1.2 (див. Anchor.toml)
-anchor --version       # Anchor CLI 1.1.2
+anchor --version       # Anchor CLI
 pnpm --version && node --version
 ```
 
@@ -142,9 +146,9 @@ pnpm --version && node --version
 
 ```bash
 cargo fmt --check
+cargo build-sbf --arch v3
 cargo test --locked
 cargo clippy --all-targets -- -D warnings
-anchor build
 ```
 
 Канонічний program keypair `keypairs/splitter-keypair.json` (gitignored, ніколи не комітити) мусить давати program ID з [`Anchor.toml`](./Anchor.toml) і збігатися з `declare_id!` в `lib.rs`. `mainnet-deploy.sh` це перевіряє і абортиться при розбіжності. Ledger: розблокований, відкритий Solana-додаток, кожну адресу звіряти на екрані пристрою.
@@ -202,7 +206,10 @@ export SPLITTER_DEPLOYER=<Ledger-або-мультисіг-адреса>
 
 Що робить скрипт: перевіряє канонічний keypair + `declare_id`, резолвить деплоєра (Ledger URL або файл), перевіряє баланс ≥ 3 SOL, перезбирає SBF щоб `DEPLOYER`/`declare_id` були вшиті, детектить fresh-vs-upgrade (при upgrade перевіряє що підписант = on-chain upgrade authority), вимагає ввести `DEPLOY-MAINNET`, деплоїть `solana program deploy --program-id <canonical>`, пише лог + IDL-снапшот у `deployments/splitter_v14/splitter.mainnet.<ts>.json`.
 
-### 2.6. Крок 4. Initialize (платник = DEPLOYER, одна транзакція створює 3 PDA)
+### 2.6. Крок 4. Initialize (лише для першого деплою; платник = DEPLOYER)
+
+`initialize` створює PDA один раз. Не запускайте цей крок для вже
+ініціалізованої mainnet-програми.
 
 ```bash
 pnpm build:initialize-mainnet

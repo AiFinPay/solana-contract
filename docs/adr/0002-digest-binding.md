@@ -79,11 +79,10 @@ high-s signatures exactly as EIP-2 does.
 
 ### 4. Cross-chain regression vectors
 
-A canonical quote must produce a pinned 32-byte digest on each chain. The repo
-already includes an inline test in `lib.rs` (`quote_message_hash_is_deterministic_and_matches_off_chain_implementation`)
-that recomputes the digest with `sha2`. A follow-up task is to add a hardcoded
-vector that is also cross-checked against the EVM v1.4 contract (see
-`docs/IMPLEMENTATION.md` TODOs).
+The Rust program and TypeScript signer share a pinned Solana digest fixture
+(`digest_fixture_for_ts_parity` in `lib.rs` and
+`scripts/signer/signer-parity.test.ts`). The EVM digest is chain-specific and
+is not expected to match the Solana fixture byte-for-byte.
 
 ## Consequences
 
@@ -120,13 +119,3 @@ vector that is also cross-checked against the EVM v1.4 contract (see
    Solana-native construction is preferred for v1.4.
 3. **Keep the ADR-0001 wording as-is** — rejected: the documentation drift
    would confuse auditors and integrators.
-
-## Follow-ups
-
-- [x] Record this decision in `docs/adr/0002-digest-binding.md`.
-- [x] Update ADR-0001 to stop claiming the digest is EIP-712-style on Solana.
-- [x] Update `ARCHITECTURE.md` §5 to describe the Solana-native digest.
-- [x] Update `SECURITY.md` invariant #7 to reflect chain-specific digest parity.
-- [x] Update `programs/splitter/README.md` quote schema section.
-- [ ] Add a hardcoded cross-chain digest regression vector once the EVM v1.4
-      fixture is available.

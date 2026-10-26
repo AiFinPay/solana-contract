@@ -10,8 +10,8 @@ for changes that touch on-chain settlement code.
   to build on any other channel.
 - `cargo-build-sbf` — installed with the Solana CLI toolchain
   (`sh -c "$(curl -sSfL https://release.anza.xyz/v2.0.0/install)"`).
-- `anchor-cli` ≥ 0.31 — used only as a build orchestrator; tests do **not**
-  require Anchor's JS harness.
+- `anchor-cli` — used for Anchor tooling such as `anchor keys sync`; tests do
+  **not** require Anchor's JS harness.
 - A local Solana wallet at `~/.config/solana/id.json` (used by Anchor's
   provider config).
 
@@ -20,8 +20,8 @@ for changes that touch on-chain settlement code.
 ```bash
 git clone <repo-url>
 cd solana-contract
-pnpm install                       # pulls @daochild/agents-config only
-anchor build                        # builds target/deploy/splitter.so
+pnpm install                       # installs JavaScript tooling dependencies
+cargo build-sbf --arch v3           # builds target/deploy/splitter.so
 anchor keys sync                    # sync program ID with keypair
 cargo test                         # inline unit tests + litesvm integration test
 ```
@@ -33,9 +33,9 @@ cargo test                         # inline unit tests + litesvm integration tes
 2. **Make your change** in `programs/splitter/`.
 3. **Run the local checks** before pushing (see §5).
 4. **Push** and open a pull request against the original branch.
-5. CI must pass (`fmt --check`, `cargo test --locked`, `clippy`, `anchor build`).
+5. CI must pass (`fmt --check`, SBF build, `cargo test --locked`, `clippy`).
 6. **At least one human approval** is required for any change touching
-   settlement semantics, fee caps, role rotation, or the EIP-712 digest.
+   settlement semantics, fee caps, role rotation, or the quote digest.
 7. Squash-merge once green.
 
 ## 4. Code Conventions
@@ -71,47 +71,43 @@ Before opening a PR, run all four CI steps locally:
 
 ```bash
 cargo fmt --check
+cargo build-sbf --arch v3
 cargo test --locked
 cargo clippy --all-targets -- -D warnings
-anchor build
 ```
 
-Any failure is a blocker. If `anchor build` fails with linker errors,
-verify `cargo-build-sbf` is on `PATH` and that the Solana platform-tools
-match the Solana BPF toolchain expected by `anchor-lang 1.1.2`.
+Any failure is a blocker. If the SBF build fails, verify `cargo-build-sbf`
+is on `PATH` and that the Solana platform-tools match the pinned Solana
+toolchain.
 
 ## 6. Testing
 
 - **Unit tests** live in `lib.rs` (inline `#[cfg(test)] mod tests`) and
-  cover pure helpers: `quote_hash`, `split_gross`, route constant
+  cover pure helpers: `quote_message_hash`, `split_gross`, route constant
   invariants. Add new tests here for any new pure function.
 - **Integration tests** live in `programs/splitter/tests/` and use
   `litesvm`. They load `target/deploy/splitter.so` directly, so make sure
-  `anchor build` has been run before invoking `cargo test`.
-- **Coverage target**: 80% on new code. If you cannot hit that, document
-  the gap in the PR description.
-- **Digest regression vectors**: when changing the digest, add a regression
-  test pinning the resulting 32-byte hash. The vector MUST be cross-checked
-  against the EVM v1.4 deployment for the equivalent `Quote`; otherwise the
-  bridge is broken. Note that the EVM and Solana digests are intentionally
-  different algorithms (keccak256 EIP-712 vs. SHA-256 Borsh), so vectors are
-  chain-specific.
+  `cargo build-sbf --arch v3` has been run before invoking `cargo test`.
+- **Digest regression vectors**: when changing the digest, pin its 32-byte
+  output and cross-check it against the TypeScript signer implementation.
+  Solana and EVM digests intentionally differ (SHA-256/Borsh versus
+  keccak256/EIP-712), so their digest bytes are not expected to match.
 
 ## 7. Cross-Chain Parity Is Sacred
 
-The following values are part of the cross-chain contract and changing them
-is a coordinated upgrade:
+The following values are shared with the EVM v1.4 contract and changing them
+requires a coordinated upgrade:
 
-- `EIP712_NAME`, `EIP712_VERSION`
-- `DOMAIN_TYPEHASH`, `QUOTE_TYPEHASH`
 - `ROUTE_AGENT_X402`, `ROUTE_MERCHANT_AIFP1`
 - Fee caps (`MAX_TREASURY_BPS`, `MAX_IP_CREATOR_BPS`)
-- The order of fields in `quote_hash()`
+- The quote field order and business semantics
+- Settlement split semantics
 
 Any PR touching one of these MUST:
 
 1. Reference the EVM v1.4 contract repo and the matching PR / commit.
-2. Add a vector test that cross-checks both deployments.
+2. Verify the shared values against the EVM contract and retain a regression
+   test for the Solana signing digest.
 3. Be tagged `cross-chain-affecting` and require two human approvals.
 
 ## 8. Pull Request Checklist
@@ -120,12 +116,11 @@ Any PR touching one of these MUST:
 - [ ] `cargo fmt --check` passes locally.
 - [ ] `cargo test --locked` passes locally.
 - [ ] `cargo clippy --all-targets -- -D warnings` passes locally.
-- [ ] `anchor build` passes locally.
+- [ ] `cargo build-sbf --arch v3` passes locally.
 - [ ] New or modified instructions have at least one positive and one
   negative test case.
 - [ ] New `ErrorCode` variants have a clear `#[msg]`.
 - [ ] `ARCHITECTURE.md` updated if layout / roles / digest changed.
-- [ ] `docs/IMPLEMENTATION.md` updated with status.
 - [ ] `docs/adr/` updated if a new architectural decision was made.
 - [ ] No secrets, keypairs, or test wallets committed.
 

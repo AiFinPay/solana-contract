@@ -4,6 +4,10 @@ Mirrors of `scripts/devnet/` pointed at mainnet-beta and the canonical
 program ID from [`Anchor.toml`](../../Anchor.toml).
 Deployment is designed for a **Ledger-held deployer**.
 
+The canonical program is already deployed and live on mainnet. This runbook
+covers first-time setup and later upgrades. `initialize` is one-shot and must
+not be run again for the existing deployment.
+
 | Script | Purpose | Spends SOL? |
 |---|---|---|
 | **`ledger-deploy.sh`** | **Full Ledger pipeline: deploy + init + routes + verify** | **YES** |
@@ -16,16 +20,15 @@ Deployment is designed for a **Ledger-held deployer**.
 | `initialize-mainnet-splitter.ts` | `initialize` (file-keypair signing only) | YES (PDA rent) |
 | `configure-mainnet-route.ts` | `configure_route` for both routes (admin signs) | YES (fees) |
 
-## Pre-flight (do once, in order)
+## First-time deployment pre-flight
 
 0. **Check env.** `npm run check:env:mainnet` verifies all required env vars
    are set and valid before any mainnet operation. Pass a step name to check
    only that step: `npm run check:env:mainnet -- deploy`,
    `npm run check:env:mainnet -- initialize`, etc.
-1. **Set `DEPLOYER`.** Replace the placeholder in
-   `programs/splitter/src/constants.rs` with the Ledger address that will
-   deploy AND pay for `initialize` (`initialize` accepts no other payer).
-   `mainnet-deploy.sh` aborts while the placeholder bytes are present.
+1. **Set `DEPLOYER`.** Provide the Ledger address that will deploy and pay for
+   `initialize` with `SPLITTER_DEPLOYER` or `--deployer`. Do not edit
+   `programs/splitter/src/constants.rs`.
 2. **Estimate.** `./calculate-deploy-cost.sh` and
    `./calculate-initialize-cost.sh` — fund the Ledger with deploy cost +
    PDA rent + margin (script requires ≥ 3 SOL).
@@ -35,12 +38,12 @@ Deployment is designed for a **Ledger-held deployer**.
 4. **Connect Ledger.** Unlock, open the Solana app, verify every address
    on the device screen.
 
-## Launch sequence
+## First-time launch sequence
 
-### Option A: All-in-one Ledger pipeline (recommended)
+### Option A: All-in-one Ledger pipeline (first deployment only)
 
 ```bash
-# Full pipeline: deploy → initialize → routes → verify (all via Ledger)
+# First deployment only: deploy → initialize → routes → verify
 ./scripts/mainnet/ledger-deploy.sh
 
 # Or skip prompts (attended Ledger operation):
@@ -50,14 +53,15 @@ Deployment is designed for a **Ledger-held deployer**.
 ./scripts/mainnet/ledger-deploy.sh --skip-routes --skip-verify
 ```
 
-### Option B: Step-by-step
+### Option B: Step-by-step first deployment
 
 ```bash
 # 1. Deploy (Ledger signs; rebuilds SBF so DEPLOYER is baked in)
 ./scripts/mainnet/mainnet-deploy.sh
 # flags: --keypair usb://ledger?key=0  --yes  --skip-build  --url <rpc>
 
-# 2. Initialize — payer must be DEPLOYER
+# 2. Initialize once on first deployment — payer must be DEPLOYER.
+#    Never rerun this against the already initialized mainnet program.
 DEPLOYER_KEYPAIR_PATH=<path> ADMIN_PUBKEY=... SIGNER_PUBKEY=... \
   PAUSER_PUBKEY=... TREASURY_PUBKEY=... STABLECOINS=... \
   ROUTE_IDS=AGENT_X402,MERCHANT_AIFP1 TREASURY_BPS=0,100 IP_CREATOR_BPS=0,0 \
@@ -78,6 +82,10 @@ use `ledger-deploy.sh` which handles this automatically, or send the
 identical `initialize` instruction via a Ledger-capable client (e.g. Anchor
 CLI with `--provider.wallet "usb://ledger?key=<n>"`, same program ID,
 same PDAs, same Borsh params), then continue with steps 3–4.
+
+For the live deployment, use `mainnet-deploy.sh` only for an authorized
+upgrade, then run the read-only `check-mainnet-splitter.ts` readiness check.
+Do not use the first-time initialization sequence.
 
 ## Safety rules
 

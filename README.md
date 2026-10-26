@@ -12,10 +12,14 @@ transaction.
 
 See [`Anchor.toml`](./Anchor.toml).
 
+The canonical program is deployed and live on Solana mainnet. Mainnet deployment
+instructions below are for first-time setup or upgrades; do not initialize the
+existing deployment again.
+
 ## Build
 
 ```bash
-anchor build
+cargo build-sbf --arch v3
 anchor keys sync
 ```
 
@@ -24,11 +28,12 @@ Produces `target/deploy/splitter.so`.
 ## Test
 
 ```bash
+cargo build-sbf --arch v3
 cargo test
 ```
 
 Runs inline unit tests (`lib.rs`) and the `litesvm` integration test
-(`programs/splitter/tests/test_initialize.rs`).
+(`programs/splitter/tests/test_initialize.rs`), which loads the SBF artifact.
 
 ## Lint
 
@@ -152,7 +157,7 @@ solana program close <PROGRAM_ID> --keypair <KEYPAIR> --url devnet
 
 ## Overview
 
-The single canonical Anchor **v1.1.2** program is:
+The canonical Anchor v1.4 program is:
 
 - `programs/splitter/` — full-featured registry-based splitter.
 
@@ -162,7 +167,7 @@ Two settlement routes at v1.4:
 - `ROUTE_MERCHANT_AIFP1` — merchant, default fee 100 / 0 bps.
 
 Fee caps: treasury ≤ 500 bps (5 %), IP creator ≤ 100 bps (1 %).
-Signer verification via secp256k1 ecrecover (`solana-secpx256k1-recover`,
+Signer verification via secp256k1 ecrecover (`solana-secp256k1-recover`,
 `solana-keccak-hasher`).
 Tests use `litesvm`, not Anchor's JS harness.
 
@@ -176,8 +181,6 @@ Tests use `litesvm`, not Anchor's JS harness.
   invariants, incident response.
 - [`docs/BUSINESS_LOGIC.md`](./docs/BUSINESS_LOGIC.md) — business rules
   in operations-friendly language.
-- [`docs/IMPLEMENTATION.md`](./docs/IMPLEMENTATION.md) — feature status,
-  coverage, known issues.
 - [`docs/adr/`](./docs/adr/) — Architecture Decision Records.
 - [`AGENTS.md`](./AGENTS.md) — agent / opencode instructions.
 - [`programs/splitter/README.md`](./programs/splitter/README.md) — full splitter program reference.
@@ -189,7 +192,7 @@ Tests use `litesvm`, not Anchor's JS harness.
 ├── programs/splitter/          # Full-featured Anchor program (cdylib + lib)
 │   ├── src/
 │   │   ├── lib.rs              # declare_id, #[program] entrypoints, inline tests
-│   │   ├── constants.rs        # EIP-712 fields, route IDs, seeds, caps
+│   │   ├── constants.rs        # Message domain, route IDs, seeds, caps
 │   │   ├── state.rs            # Config, TokenList, profiles, nonces, Quote
 │   │   ├── error.rs            # ErrorCode variants
 │   │   ├── utils.rs            # digest, recover_signer, split_gross, events
@@ -198,7 +201,7 @@ Tests use `litesvm`, not Anchor's JS harness.
 │   ├── Cargo.toml
 │   ├── AGENTS.md               # Program-level agent instructions
 │   └── README.md               # Program-level quick reference
-├── docs/                       # Business logic, implementation status, ADRs
+├── docs/                       # Business logic and ADRs
 ├── .github/workflows/ci.yml    # fmt + test + clippy + build-sbf
 ├── Anchor.toml                 # `skip_local_validator = true`
 ├── Cargo.toml                  # workspace root
@@ -207,17 +210,13 @@ Tests use `litesvm`, not Anchor's JS harness.
 
 ## Cross-Chain Parity
 
-This program is intentionally byte-compatible with the EVM v1.4
-deployment. The following fields are part of the cross-chain contract
-and changing them is a coordinated upgrade:
+The Solana and EVM v1.4 deployments share the quote schema, route IDs,
+fee caps, and settlement semantics. Solana uses a distinct, program-bound
+SHA-256/Borsh signing digest; signatures are not interchangeable between
+chains. Changes to shared contract fields require a coordinated upgrade.
 
-- EIP-712 `name`, `version`, `DOMAIN_TYPEHASH`, `QUOTE_TYPEHASH`.
+- Quote field order and business meaning.
 - Route IDs `ROUTE_AGENT_X402`, `ROUTE_MERCHANT_AIFP1`.
 - Fee caps `MAX_TREASURY_BPS = 500`, `MAX_IP_CREATOR_BPS = 100`.
-- The order of fields inside `quote_hash()`.
 
 See [`CONTRIBUTING.md` §7](./CONTRIBUTING.md#7-cross-chain-parity-is-sacred).
-
-## License
-
-TBD.
