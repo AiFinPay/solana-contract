@@ -25,12 +25,12 @@
 	},
 	"devDependencies": {
 		"@coral-xyz/borsh": "^0.32.1",
-		"@daochild/agents-config": "^1.2.1",
+		"@daochild/agents-config": "^2.1.0",
 		"@noble/curves": "^2.4.0",
 		"@solana/kit": "^8.2.0",
 		"@solana/web3.js": "^1.98.4",
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^26.4.1",
+		"@types/node": "^26.6.5",
 		"mocha": "^12.0.0",
 		"typescript": "^7.0.2"
 	}
