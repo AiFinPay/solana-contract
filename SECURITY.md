@@ -127,3 +127,7 @@ the entire transaction — there are no partial successes.
 This document does not constitute a warranty. Use at your own risk and
 always perform an independent security review before deploying to a
 cluster that handles real funds.
+
+## Security maintainers
+
+- Pavlo Svizinskyy (@enot3615): security review and vulnerability triage
